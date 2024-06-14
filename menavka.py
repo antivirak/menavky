@@ -60,17 +60,18 @@ class UserInterface:
     def __init__(self):
         self.width = 900
         self.height = 900
-        self.img = Image.new("RGB", (self.width, self.height), (214, 188, 155))
+        self.background = (214, 188, 155)  # (255, 255, 255)
+        self.img = Image.new("RGB", (self.width, self.height), self.background)
 
     def arrange_images_in_circle(self, imagesToArrange: list[Image.Image]):
-        # TODO rotate cards themselfs or just mirror the labs that are on bottom half
         # pylint: disable=invalid-name
         masterImage = self.img
         imgWidth, imgHeight = masterImage.size
 
         # we want the circle to be as large as possible.
         # but the circle shouldn't extend all the way to the edge of the image.
-        # If we do that, then when we paste images onto the circle, those images will partially fall over the edge.
+        # If we do that, then when we paste images onto the circle,
+        # those images will partially fall over the edge.
         # so we reduce the diameter of the circle by the width/height of the widest/tallest image.
         diameter = min(
             imgWidth  - max(img.size[0] for img in imagesToArrange),
@@ -87,16 +88,22 @@ class UserInterface:
             dy = int(radius * math.sin(angle))
 
             # dx and dy give the coordinates of where the center of our images would go.
-            # So we must subtract half the height/width of the image to find where their top-left corners should be.
+            # So we must subtract half the height/width of the image
+            # to find where their top-left corners should be.
             pos = (
                 circleCenterX + dx - curImg.size[0] // 2,
                 circleCenterY + dy - curImg.size[1] // 2
             )
-            masterImage.paste(curImg, pos)
+            rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)
+            masterImage.paste(rot, pos, rot)
 
     def show(self, cards, direction):
         cards_to_show = reversed(cards) if direction == 'black' else cards
-        images = [Image.open(f'menavky/{filename}.{EXTENSION}') for filename in cards_to_show]  # .resize((80, 80))
+        images = [
+            Image
+            .open(f'menavky/{filename}.{EXTENSION}')
+            .convert('RGBA') for filename in cards_to_show
+        ]  # .resize((80, 80))
         self.arrange_images_in_circle(images)
 
 
@@ -198,21 +205,6 @@ class Game:
                 value = input(f'Enter {attrname} die value ({quality1} = 1, {quality2} = 2): ')
                 assert value in (1, 2), f'Invalid value {value}; has to be 1 or 2'
             setattr(self, attrname, value)
-
-    def _prepare(self):
-        """This is to prepare ventilation map for teleportation - but it will be better solved by while not next vent loop"""
-        vent_map = {}
-        last_vent = ''
-        for count in range(self.field_len):
-            card = next(self.field)
-            if card != 'ventilation':
-                continue
-            if last_vent:
-                vent_map[last_vent] = count
-                last_vent = ''
-            else:
-                last_vent = count
-        return vent_map
 
     def run(self) -> str:
         count = 0
