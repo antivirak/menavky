@@ -114,11 +114,12 @@ class Field:
         self.direction = ''
         self.ui = ui
         self.next_count = -1
+        self.current_card_filename = ''
 
     def __len__(self):
         return len(self.cards_static)
 
-    def __next__(self, visible=True):
+    def __next__(self, visible: bool = True):  # , card: str = None
         self.next_count += 1
         if not visible:
             return next(self.cards)
@@ -134,15 +135,17 @@ class Field:
         # create line image
         img1 = ImageDraw.Draw(img)
         img1.line(shape, fill='black', width=0)
-        # TODO show the current wanted card in the middle
-        # filename = 'colors_mutation'
-        # img.paste(Image.open(f'menavky/{filename}.{EXTENSION}'), (w // 2, h // 2))
+        img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
         img.show()
         sleep(.55)
         return next(self.cards)
 
     def next_invisible(self):
         return self.__next__(visible=False)  # pylint: disable=unnecessary-dunder-call
+
+    def next_with_state(self, card_to_find):
+        # TODO delete
+        return self.__next__(card=card_to_find)  # pylint: disable=unnecessary-dunder-call
 
     def create(self, start: str, direction: str):
         self.direction = direction
@@ -210,6 +213,9 @@ class Game:
         count = 0
         while True:
             # count = self.game_loop(count) - save 1 indentation level
+            # card = self.field.next_with_state(card_to_find)
+            card_to_find = f'{self.config.colors_map[self.colors]}_{self.config.stripes_map[self.stripes]}_{self.eyes}'
+            self.field.current_card_filename = f'{card_to_find}.{EXTENSION}'
             card = next(self.field)
             if card == 'ventilation':
                 card = self.field.next_invisible()
