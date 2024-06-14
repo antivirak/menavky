@@ -7,7 +7,7 @@ from time import sleep
 
 from PIL import Image, ImageDraw  # pillow==10.3.0
 
-EXTENSION = 'jpeg'
+EXTENSION = 'png'
 
 
 class Config:
