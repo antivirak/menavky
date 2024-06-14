@@ -1,3 +1,5 @@
+# @author Jaroslav Cerman; June 2024
+
 import itertools
 import math
 import random
@@ -58,10 +60,11 @@ class UserInterface:
     def __init__(self):
         self.width = 900
         self.height = 900
-        self.img = Image.new("RGB", (self.width,  self.height), (255, 255, 255))
+        self.img = Image.new("RGB", (self.width, self.height), (255, 255, 255))
 
-    def arrangeImagesInCircle(self, imagesToArrange: list[Image.Image]):
+    def arrange_images_in_circle(self, imagesToArrange: list[Image.Image]):
         # TODO rotate cards themselfs or just mirror the labs that are on bottom half
+        # pylint: disable=invalid-name
         masterImage = self.img
         imgWidth, imgHeight = masterImage.size
 
@@ -75,7 +78,7 @@ class UserInterface:
         )
         radius = diameter / 2
 
-        circleCenterX = imgWidth  // 2
+        circleCenterX = imgWidth // 2
         circleCenterY = imgHeight // 2
         theta = 2 * math.pi / len(imagesToArrange)
         for i, curImg in enumerate(imagesToArrange):
@@ -94,21 +97,16 @@ class UserInterface:
     def show(self, cards, direction):
         cards_to_show = reversed(cards) if direction == 'black' else cards
         images = [Image.open(f'menavky/{filename}.{EXTENSION}') for filename in cards_to_show]  # .resize((80, 80))
-        # for image, fname in zip(images, cards_to_show):
-        #     image.save(f'manevky_small/{fname}.png')
-        self.arrangeImagesInCircle(images)
-        # self.img.show()
+        self.arrange_images_in_circle(images)
 
 
 class Field:
     def __init__(self, config: Config, ui: UserInterface) -> None:
-        # TODO should be list or deque? It will be iterable anyway
         self.cards_static = [card for card, count in config.cards.items() for _ in range(count)]
         self.cards = None
         self.direction = ''
         self.ui = ui
         self.next_count = -1
-        # self.cards_reverse = reversed(self.cards)
 
     def __len__(self):
         return len(self.cards_static)
@@ -137,7 +135,7 @@ class Field:
         return next(self.cards)
 
     def next_invisible(self):
-        return self.__next__(visible=False)
+        return self.__next__(visible=False)  # pylint: disable=unnecessary-dunder-call
 
     def create(self, start: str, direction: str):
         self.direction = direction
@@ -146,7 +144,6 @@ class Field:
         self.cards_static.insert(0, start)
         self.cards = itertools.cycle(self.cards_static)  # TODO or shuffle and then while loop on cycle?
         self.ui.show(self.cards_static, direction)
-        # self.cards_reverse = itertools.cycle(reversed(self.cards_static))
         return self
 
     def shuffle(self):
@@ -162,7 +159,6 @@ class Field:
 
 
 class Game:
-    # TODO create visualisation
     def __init__(self, config: Config, field: Field) -> None:
         self.config = config
         self.throw_dice()
@@ -219,7 +215,6 @@ class Game:
         return vent_map
 
     def run(self) -> str:
-        # vent_map = self._prepare()
         count = 0
         while True:
             # count = self.game_loop(count) - save 1 indentation level
