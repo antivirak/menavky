@@ -1,3 +1,5 @@
+# @author Jaroslav Cerman; June 2024
+
 import itertools
 import math
 import random
@@ -5,7 +7,7 @@ from time import sleep
 
 from PIL import Image, ImageDraw  # pillow==10.3.0
 
-EXTENSION = 'jpeg'
+EXTENSION = 'png'
 
 
 class Config:
@@ -58,16 +60,18 @@ class UserInterface:
     def __init__(self):
         self.width = 900
         self.height = 900
-        self.img = Image.new("RGB", (self.width,  self.height), (255, 255, 255))
+        self.background = (214, 188, 155)  # (255, 255, 255)
+        self.img = Image.new("RGB", (self.width, self.height), self.background)
 
-    def arrangeImagesInCircle(self, imagesToArrange: list[Image.Image]):
-        # TODO rotate cards themselfs or just mirror the labs that are on bottom half
+    def arrange_images_in_circle(self, imagesToArrange: list[Image.Image]):
+        # pylint: disable=invalid-name
         masterImage = self.img
         imgWidth, imgHeight = masterImage.size
 
         # we want the circle to be as large as possible.
         # but the circle shouldn't extend all the way to the edge of the image.
-        # If we do that, then when we paste images onto the circle, those images will partially fall over the edge.
+        # If we do that, then when we paste images onto the circle,
+        # those images will partially fall over the edge.
         # so we reduce the diameter of the circle by the width/height of the widest/tallest image.
         diameter = min(
             imgWidth  - max(img.size[0] for img in imagesToArrange),
@@ -75,7 +79,7 @@ class UserInterface:
         )
         radius = diameter / 2
 
-        circleCenterX = imgWidth  // 2
+        circleCenterX = imgWidth // 2
         circleCenterY = imgHeight // 2
         theta = 2 * math.pi / len(imagesToArrange)
         for i, curImg in enumerate(imagesToArrange):
@@ -84,36 +88,38 @@ class UserInterface:
             dy = int(radius * math.sin(angle))
 
             # dx and dy give the coordinates of where the center of our images would go.
-            # So we must subtract half the height/width of the image to find where their top-left corners should be.
+            # So we must subtract half the height/width of the image
+            # to find where their top-left corners should be.
             pos = (
                 circleCenterX + dx - curImg.size[0] // 2,
                 circleCenterY + dy - curImg.size[1] // 2
             )
-            masterImage.paste(curImg, pos)
+            rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)
+            masterImage.paste(rot, pos, rot)
 
     def show(self, cards, direction):
         cards_to_show = reversed(cards) if direction == 'black' else cards
-        images = [Image.open(f'menavky/{filename}.{EXTENSION}') for filename in cards_to_show]  # .resize((80, 80))
-        # for image, fname in zip(images, cards_to_show):
-        #     image.save(f'manevky_small/{fname}.png')
-        self.arrangeImagesInCircle(images)
-        # self.img.show()
+        images = [
+            Image
+            .open(f'menavky/{filename}.{EXTENSION}')
+            .convert('RGBA') for filename in cards_to_show
+        ]  # .resize((80, 80))
+        self.arrange_images_in_circle(images)
 
 
 class Field:
     def __init__(self, config: Config, ui: UserInterface) -> None:
-        # TODO should be list or deque? It will be iterable anyway
         self.cards_static = [card for card, count in config.cards.items() for _ in range(count)]
         self.cards = None
         self.direction = ''
         self.ui = ui
         self.next_count = -1
-        # self.cards_reverse = reversed(self.cards)
+        self.current_card_filename = ''
 
     def __len__(self):
         return len(self.cards_static)
 
-    def __next__(self, visible=True):
+    def __next__(self, visible: bool = True):  # , card: str = None
         self.next_count += 1
         if not visible:
             return next(self.cards)
@@ -129,15 +135,17 @@ class Field:
         # create line image
         img1 = ImageDraw.Draw(img)
         img1.line(shape, fill='black', width=0)
-        # TODO show the current wanted card in the middle
-        # filename = 'colors_mutation'
-        # img.paste(Image.open(f'menavky/{filename}.{EXTENSION}'), (w // 2, h // 2))
+        img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
         img.show()
         sleep(.55)
         return next(self.cards)
 
     def next_invisible(self):
-        return self.__next__(visible=False)
+        return self.__next__(visible=False)  # pylint: disable=unnecessary-dunder-call
+
+    def next_with_state(self, card_to_find):
+        # TODO delete
+        return self.__next__(card=card_to_find)  # pylint: disable=unnecessary-dunder-call
 
     def create(self, start: str, direction: str):
         self.direction = direction
@@ -146,7 +154,6 @@ class Field:
         self.cards_static.insert(0, start)
         self.cards = itertools.cycle(self.cards_static)  # TODO or shuffle and then while loop on cycle?
         self.ui.show(self.cards_static, direction)
-        # self.cards_reverse = itertools.cycle(reversed(self.cards_static))
         return self
 
     def shuffle(self):
@@ -162,7 +169,6 @@ class Field:
 
 
 class Game:
-    # TODO create visualisation
     def __init__(self, config: Config, field: Field) -> None:
         self.config = config
         self.throw_dice()
@@ -203,26 +209,13 @@ class Game:
                 assert value in (1, 2), f'Invalid value {value}; has to be 1 or 2'
             setattr(self, attrname, value)
 
-    def _prepare(self):
-        """This is to prepare ventilation map for teleportation - but it will be better solved by while not next vent loop"""
-        vent_map = {}
-        last_vent = ''
-        for count in range(self.field_len):
-            card = next(self.field)
-            if card != 'ventilation':
-                continue
-            if last_vent:
-                vent_map[last_vent] = count
-                last_vent = ''
-            else:
-                last_vent = count
-        return vent_map
-
     def run(self) -> str:
-        # vent_map = self._prepare()
         count = 0
         while True:
             # count = self.game_loop(count) - save 1 indentation level
+            # card = self.field.next_with_state(card_to_find)
+            card_to_find = f'{self.config.colors_map[self.colors]}_{self.config.stripes_map[self.stripes]}_{self.eyes}'
+            self.field.current_card_filename = f'{card_to_find}.{EXTENSION}'
             card = next(self.field)
             if card == 'ventilation':
                 card = self.field.next_invisible()
