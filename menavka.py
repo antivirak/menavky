@@ -60,7 +60,7 @@ class UserInterface:
     def __init__(self):
         self.width = 900
         self.height = 900
-        self.img = Image.new("RGB", (self.width, self.height), (255, 255, 255))
+        self.img = Image.new("RGB", (self.width, self.height), (214, 188, 155))
 
     def arrange_images_in_circle(self, imagesToArrange: list[Image.Image]):
         # TODO rotate cards themselfs or just mirror the labs that are on bottom half
