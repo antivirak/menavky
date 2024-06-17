@@ -5,9 +5,13 @@ import math
 import random
 from time import sleep
 
-from PIL import Image, ImageDraw  # pillow==10.3.0
+import pygame  # pygame==2.5.2
+from PIL import Image  # pillow==10.3.0
 
 EXTENSION = 'png'
+FPS = 24
+width = 800
+height = 800
 
 
 class Config:
@@ -58,15 +62,19 @@ class Config:
 
 class UserInterface:
     def __init__(self):
-        self.width = 900
-        self.height = 900
+        border = 2
+        self.width = width
+        self.height = height
         self.background = (214, 188, 155)  # (255, 255, 255)
-        self.img = Image.new("RGB", (self.width, self.height), self.background)
+        # self.img = Image.new("RGB", (self.width, self.height), self.background)
+        self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
+        self.img.fill(self.background)
 
-    def arrange_images_in_circle(self, imagesToArrange: list[Image.Image]):
+    def arrange_images_in_circle(self, imagesToArrange: list):
         # pylint: disable=invalid-name
-        masterImage = self.img
-        imgWidth, imgHeight = masterImage.size
+        # masterImage = self.img
+        imgWidth = self.width
+        imgHeight = self.height
 
         # we want the circle to be as large as possible.
         # but the circle shouldn't extend all the way to the edge of the image.
@@ -82,7 +90,9 @@ class UserInterface:
         circleCenterX = imgWidth // 2
         circleCenterY = imgHeight // 2
         theta = 2 * math.pi / len(imagesToArrange)
+        rects = []
         for i, curImg in enumerate(imagesToArrange):
+            # button_surface = curImg  # pygame.Surface((80, 80))
             angle = i * theta
             dx = int(radius * math.cos(angle))
             dy = int(radius * math.sin(angle))
@@ -90,21 +100,48 @@ class UserInterface:
             # dx and dy give the coordinates of where the center of our images would go.
             # So we must subtract half the height/width of the image
             # to find where their top-left corners should be.
+            # size = curImg.get_size()
+            size = curImg.size
             pos = (
-                circleCenterX + dx - curImg.size[0] // 2,
-                circleCenterY + dy - curImg.size[1] // 2
+                circleCenterX + dx - size[0] // 2,
+                circleCenterY + dy - size[1] // 2
             )
             rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)
-            masterImage.paste(rot, pos, rot)
+            # button_rect = pygame.Rect(*pos, 80, 80)
+            # old_center = button_rect.center
+            # new_image = pygame.transform.rotate(button_surface, (-angle / math.pi * 180 - 90) % 360)
+            new_image = pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode)
+            rect = new_image.get_rect()
+            rect.update(*pos, 80, 80)
+            # rect.center = old_center  
+            # drawing the rotated rectangle to the screen  
+            # self.blit(new_image, rect)  
+            # self.blit(new_image, rect)
+            self.blit(new_image, pos)
+            # masterImage.paste(rot, pos, rot)
+            rects.append(rect)
+            # TODO yield
+        return rects
 
     def show(self, cards, direction):
-        cards_to_show = reversed(cards) if direction == 'black' else cards
+        cards_to_show = list(reversed(cards)) if direction == 'black' else cards
+        # images = [
+        #     pygame.image.load(f'menavky/{filename}.{EXTENSION}').convert()
+        #     for filename in cards_to_show
+        # ]
         images = [
             Image
             .open(f'menavky/{filename}.{EXTENSION}')
             .convert('RGBA') for filename in cards_to_show
         ]  # .resize((80, 80))
-        self.arrange_images_in_circle(images)
+        # self.obj_map = [
+        #     (img, filename)
+        #     for img, filename in zip(self.arrange_images_in_circle(images), cards_to_show)
+        # ]
+        self.obj_map = list(zip(self.arrange_images_in_circle(images), cards_to_show))
+
+    def blit(self, surface, pos):
+        self.img.blit(surface, pos)
 
 
 class Field:
@@ -130,13 +167,13 @@ class Field:
         ) - (1 if self.direction == 'black' else 0))
         shape = [(w // 2, h // 2), (w // 2 + 400 * math.cos(angle),
                                     h // 2 + 400 * math.sin(angle))]
-        # creating new Image object
-        img = self.ui.img.copy()
-        # create line image
-        img1 = ImageDraw.Draw(img)
-        img1.line(shape, fill='black', width=0)
-        img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
-        img.show()
+        # # creating new Image object
+        # img = self.ui.img.copy()
+        # # create line image
+        # img1 = ImageDraw.Draw(img)
+        # img1.line(shape, fill='black', width=0)
+        # img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
+        # img.show()
         sleep(.55)
         return next(self.cards)
 
@@ -248,10 +285,35 @@ class Game:
 
 
 def main() -> None:
+    pygame.init()
+    pygame.display.set_caption("Mněňavky")
+
     config = Config()
     ui = UserInterface()
     game = Game(config, Field(config, ui))
-    print(game.run())
+    card = game.run()
+
+    done = False
+    clock = pygame.time.Clock()
+
+    # basicfont = pygame.font.SysFont(None, 32)
+
+    while not done:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                done = True
+            
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                for button_rect, fname in ui.obj_map:
+                    if button_rect.collidepoint(event.pos):
+                        print(fname)
+                        if fname == card:
+                            print('Correct!')
+
+        pygame.display.flip()
+        clock.tick(FPS)
+    return
+
     while input('Run again with the same field? (Or type q to quit) ') != 'q':
         print(game.run_again())
 
