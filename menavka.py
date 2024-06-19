@@ -124,7 +124,7 @@ class UserInterface:
         return rects
 
     def show(self, cards, direction):
-        cards_to_show = list(reversed(cards)) if direction == 'black' else cards
+        cards_to_show = reversed(cards) if direction == 'black' else cards
         # images = [
         #     pygame.image.load(f'menavky/{filename}.{EXTENSION}').convert()
         #     for filename in cards_to_show
@@ -173,7 +173,9 @@ class Field:
         # img1 = ImageDraw.Draw(img)
         # img1.line(shape, fill='black', width=0)
         # img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
+        pygame.draw.line(self.ui.img, (0, 0, 0), *shape)
         # img.show()
+        pygame.display.flip()
         sleep(.55)
         return next(self.cards)
 
