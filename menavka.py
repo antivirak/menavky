@@ -4,6 +4,7 @@ import itertools
 import math
 import random
 from time import sleep
+from typing import Generator
 
 import pygame  # pygame==2.5.2
 from PIL import Image  # pillow==10.3.0
@@ -248,7 +249,7 @@ class Game:
                 assert value in (1, 2), f'Invalid value {value}; has to be 1 or 2'
             setattr(self, attrname, value)
 
-    def run(self) -> str:
+    def run(self) -> Generator[str, None, None]:
         count = 0
         while True:
             # count = self.game_loop(count) - save 1 indentation level
@@ -278,7 +279,8 @@ class Game:
             # Construct the wanted card name
             card_to_find = f'{self.config.colors_map[self.colors]}_{self.config.stripes_map[self.stripes]}_{self.eyes}'
             if card == card_to_find:
-                return card  # TODO there are more instances of each card
+                yield card  # TODO there are more instances of each card
+            yield ''  # TODO decouple the computation from visualisation
 
     def run_again(self) -> str:
         self.throw_dice()
@@ -293,7 +295,8 @@ def main() -> None:
     config = Config()
     ui = UserInterface()
     game = Game(config, Field(config, ui))
-    card = game.run()
+    cards = game.run()
+    card = None
 
     done = False
     clock = pygame.time.Clock()
@@ -301,6 +304,12 @@ def main() -> None:
     # basicfont = pygame.font.SysFont(None, 32)
 
     while not done:
+        # try:
+        #     card = next(cards)
+        # except StopIteration:
+        #     ...
+        if not card:
+            card = next(cards)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
