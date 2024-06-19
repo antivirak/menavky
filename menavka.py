@@ -206,14 +206,11 @@ class Field:
     def shuffle(self):
         random.shuffle(self.cards_static)  # mutates the list :(
 
-    def cycle_to_start(self, start: str, direction: str):
-        # TODO remove
-        if direction != self.direction:
-            self.cards_static = list(reversed(self.cards_static))
-            self.direction = direction
-            self.cards = itertools.cycle(self.cards_static)
-        while next(self) != start:
-            next(self)
+    def cycle_to_start(self, start_lab: str, direction: str):
+        self.direction = direction  # TODO when changing direction, the animation breaks
+        card = ''
+        while card != start_lab:
+            card = self.next_invisible()
 
 
 class Game:
@@ -297,6 +294,7 @@ class Game:
         # TODO remove the lines
         self.throw_dice()
         # self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
+        self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         return self.run()
 
 
@@ -328,7 +326,8 @@ def main() -> None:
                         print(fname)
                         if fname == card:
                             print('Correct!')
-                            # cards = game.run_again()
+                            cards = game.run_again()
+                            card = None
 
         pygame.display.flip()
         clock.tick(FPS)
