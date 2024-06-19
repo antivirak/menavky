@@ -3,6 +3,7 @@
 import itertools
 import math
 import random
+from functools import lru_cache
 from time import sleep
 from typing import Generator
 
@@ -70,6 +71,8 @@ class UserInterface:
         # self.img = Image.new("RGB", (self.width, self.height), self.background)
         self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
         self.img.fill(self.background)
+        # transparent_layer = pygame.Surface((width + (2 * border), height + (2 * border)), pygame.SRCALPHA)
+        self.transparent_layer = None  # self.img.copy()  # transparent_layer.convert_alpha()
 
     def arrange_images_in_circle(self, imagesToArrange: list) -> Generator[pygame.Rect, None, None]:
         # pylint: disable=invalid-name
@@ -137,9 +140,21 @@ class UserInterface:
         #     for img, filename in zip(self.arrange_images_in_circle(images), cards_to_show)
         # ]
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
+        self.update_transparent_layer()
 
     def blit(self, surface, pos):
         self.img.blit(surface, pos)
+
+    def update_transparent_layer(self):
+        self.transparent_layer = self.img.copy()
+
+    def reset_img(self):
+        self.blit(self.transparent_layer, (0, 0))
+
+    @staticmethod
+    @lru_cache()
+    def image_load(fname):
+        return pygame.image.load(f'menavky/{fname}')
 
 
 class Field:
@@ -165,18 +180,15 @@ class Field:
         ) - (1 if self.direction == 'black' else 0))
         shape = [(w // 2, h // 2), (w // 2 + 400 * math.cos(angle),
                                     h // 2 + 400 * math.sin(angle))]
-        # # creating new Image object
-        # img = self.ui.img.copy()
-        # # create line image
-        # img1 = ImageDraw.Draw(img)
-        # img1.line(shape, fill='black', width=0)
-        # img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
-        center_image = pygame.image.load(f'menavky/{self.current_card_filename}')
-        self.ui.blit(center_image, (w // 2, h // 2))
+
+        self.ui.reset_img()
+        center_image = self.ui.image_load(self.current_card_filename)
+        self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
+
         pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
         # img.show()
         pygame.display.flip()
-        sleep(.55)
+        sleep(.55)  # pygame.time.wait?
         return next(self.cards)
 
     def next_invisible(self):
@@ -194,7 +206,8 @@ class Field:
     def shuffle(self):
         random.shuffle(self.cards_static)  # mutates the list :(
 
-    def cycle_to_start(self, start: str, direction):
+    def cycle_to_start(self, start: str, direction: str):
+        # TODO remove
         if direction != self.direction:
             self.cards_static = list(reversed(self.cards_static))
             self.direction = direction
@@ -212,6 +225,7 @@ class Game:
 
     def throw_dice(self) -> None:
         # pylint: disable=attribute-defined-outside-init
+        # TODO show dice values in UI, not just terminal
         self.labs = random.choice(self.config.labs_dice)
         self.eyes = random.choice(self.config.eyes_dice)
         self.stripes = random.choice(self.config.stripes_dice)
@@ -280,8 +294,9 @@ class Game:
             yield ''  # TODO decouple the computation from visualisation
 
     def run_again(self) -> Generator[str, None, None]:
+        # TODO remove the lines
         self.throw_dice()
-        self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
+        # self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         return self.run()
 
 
@@ -313,6 +328,7 @@ def main() -> None:
                         print(fname)
                         if fname == card:
                             print('Correct!')
+                            # cards = game.run_again()
 
         pygame.display.flip()
         clock.tick(FPS)
