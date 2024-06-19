@@ -117,7 +117,6 @@ class UserInterface:
             # rect.center = old_center
             # drawing the rotated rectangle to the screen
             # self.blit(new_image, rect)
-            # self.blit(new_image, rect)
             self.blit(new_image, pos)
             # masterImage.paste(rot, pos, rot)
             yield rect
@@ -172,7 +171,9 @@ class Field:
         # img1 = ImageDraw.Draw(img)
         # img1.line(shape, fill='black', width=0)
         # img.paste(Image.open(f'menavky/{self.current_card_filename}'), (w // 2, h // 2))
-        pygame.draw.line(self.ui.img, (0, 0, 0), *shape)
+        center_image = pygame.image.load(f'menavky/{self.current_card_filename}')
+        self.ui.blit(center_image, (w // 2, h // 2))
+        pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
         # img.show()
         pygame.display.flip()
         sleep(.55)
