@@ -71,7 +71,7 @@ class UserInterface:
         self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
         self.img.fill(self.background)
 
-    def arrange_images_in_circle(self, imagesToArrange: list):
+    def arrange_images_in_circle(self, imagesToArrange: list) -> Generator[pygame.Rect, None, None]:
         # pylint: disable=invalid-name
         # masterImage = self.img
         imgWidth = self.width
@@ -91,7 +91,7 @@ class UserInterface:
         circleCenterX = imgWidth // 2
         circleCenterY = imgHeight // 2
         theta = 2 * math.pi / len(imagesToArrange)
-        rects = []
+
         for i, curImg in enumerate(imagesToArrange):
             # button_surface = curImg  # pygame.Surface((80, 80))
             angle = i * theta
@@ -114,15 +114,13 @@ class UserInterface:
             new_image = pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode)
             rect = new_image.get_rect()
             rect.update(*pos, 80, 80)
-            # rect.center = old_center  
-            # drawing the rotated rectangle to the screen  
-            # self.blit(new_image, rect)  
+            # rect.center = old_center
+            # drawing the rotated rectangle to the screen
+            # self.blit(new_image, rect)
             # self.blit(new_image, rect)
             self.blit(new_image, pos)
             # masterImage.paste(rot, pos, rot)
-            rects.append(rect)
-            # TODO yield
-        return rects
+            yield rect
 
     def show(self, cards, direction):
         cards_to_show = reversed(cards) if direction == 'black' else cards
@@ -139,7 +137,7 @@ class UserInterface:
         #     (img, filename)
         #     for img, filename in zip(self.arrange_images_in_circle(images), cards_to_show)
         # ]
-        self.obj_map = list(zip(self.arrange_images_in_circle(images), cards_to_show))
+        self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
 
     def blit(self, surface, pos):
         self.img.blit(surface, pos)
@@ -157,7 +155,7 @@ class Field:
     def __len__(self):
         return len(self.cards_static)
 
-    def __next__(self, visible: bool = True):  # , card: str = None
+    def __next__(self, visible: bool = True):
         self.next_count += 1
         if not visible:
             return next(self.cards)
@@ -182,10 +180,6 @@ class Field:
 
     def next_invisible(self):
         return self.__next__(visible=False)  # pylint: disable=unnecessary-dunder-call
-
-    def next_with_state(self, card_to_find):
-        # TODO delete
-        return self.__next__(card=card_to_find)  # pylint: disable=unnecessary-dunder-call
 
     def create(self, start: str, direction: str):
         self.direction = direction
@@ -242,12 +236,13 @@ class Game:
                 value1 = input(f'Enter {attrname} die value (black / white) arrow: ').strip()
                 assert value1 in ('black', 'white'), f'Invalid value {value1}; has to be black or white'
                 value = (value1, value2)
+                setattr(self, attrname, value)
             else:
                 quality1 = 'stripes' if 'stripes' in attrname else 'red'
                 quality2 = 'dots' if 'stripes' in attrname else 'blue'
-                value = input(f'Enter {attrname} die value ({quality1} = 1, {quality2} = 2): ')
-                assert value in (1, 2), f'Invalid value {value}; has to be 1 or 2'
-            setattr(self, attrname, value)
+                val = input(f'Enter {attrname} die value ({quality1} = 1, {quality2} = 2): ')
+                assert val in (1, 2), f'Invalid value {val}; has to be 1 or 2'
+                setattr(self, attrname, val)
 
     def run(self) -> Generator[str, None, None]:
         count = 0
@@ -256,7 +251,8 @@ class Game:
             # card = self.field.next_with_state(card_to_find)
             card_to_find = f'{self.config.colors_map[self.colors]}_{self.config.stripes_map[self.stripes]}_{self.eyes}'
             self.field.current_card_filename = f'{card_to_find}.{EXTENSION}'
-            card = next(self.field)
+            # self.field is not-exhaustable generator
+            card = next(self.field)  # pylint: disable=stop-iteration-return
             if card == 'ventilation':
                 card = self.field.next_invisible()
                 while card != 'ventilation':
@@ -273,7 +269,7 @@ class Game:
             if card.endswith('_mutation'):
                 if count == 3:
                     # mněňavka dies
-                    return card
+                    yield card
                 count += 1
                 continue
             # Construct the wanted card name
@@ -282,7 +278,7 @@ class Game:
                 yield card  # TODO there are more instances of each card
             yield ''  # TODO decouple the computation from visualisation
 
-    def run_again(self) -> str:
+    def run_again(self) -> Generator[str, None, None]:
         self.throw_dice()
         self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         return self.run()
@@ -304,16 +300,12 @@ def main() -> None:
     # basicfont = pygame.font.SysFont(None, 32)
 
     while not done:
-        # try:
-        #     card = next(cards)
-        # except StopIteration:
-        #     ...
         if not card:
             card = next(cards)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 done = True
-            
+
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 for button_rect, fname in ui.obj_map:
                     if button_rect.collidepoint(event.pos):
