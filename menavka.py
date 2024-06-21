@@ -111,34 +111,21 @@ class UserInterface:
                 circleCenterY + dy - size[1] // 2
             )
             rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)
-            # button_rect = pygame.Rect(*pos, 80, 80)
-            # old_center = button_rect.center
-            # new_image = pygame.transform.rotate(button_surface, (-angle / math.pi * 180 - 90) % 360)
+
             new_image = pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode)
             rect = new_image.get_rect()
-            rect.update(*pos, 80, 80)
-            # rect.center = old_center
+            rect.update(*pos, 80, 80)  # TODO 80 as global var
             # drawing the rotated rectangle to the screen
-            # self.blit(new_image, rect)
             self.blit(new_image, pos)
-            # masterImage.paste(rot, pos, rot)
             yield rect
 
     def show(self, cards, direction):
         cards_to_show = reversed(cards) if direction == 'black' else cards
-        # images = [
-        #     pygame.image.load(f'menavky/{filename}.{EXTENSION}').convert()
-        #     for filename in cards_to_show
-        # ]
         images = [
             Image
             .open(f'menavky/{filename}.{EXTENSION}')
             .convert('RGBA') for filename in cards_to_show
         ]  # .resize((80, 80))
-        # self.obj_map = [
-        #     (img, filename)
-        #     for img, filename in zip(self.arrange_images_in_circle(images), cards_to_show)
-        # ]
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
         self.update_transparent_layer()
 
@@ -215,6 +202,7 @@ class Field:
             card = self.next_invisible()
 
     def show_throw(self, card: str, labs: tuple[str, str]):
+        self.ui.reset_img()
         w = self.ui.width
         h = self.ui.height
         direction, lab = labs
@@ -274,7 +262,6 @@ class Game:
 
     def throw_dice(self) -> None:
         # pylint: disable=attribute-defined-outside-init
-        # TODO show dice values in UI, not just terminal
         self.labs = random.choice(self.config.labs_dice)
         self.eyes = random.choice(self.config.eyes_dice)
         self.stripes = random.choice(self.config.stripes_dice)
@@ -360,7 +347,7 @@ def main() -> None:
 
     config = Config()
     ui = UserInterface()
-    game = Game(config, Field(config, ui, animation=True))
+    game = Game(config, Field(config, ui, animation=False))
     cards = game.run()
     card = None
 
@@ -377,7 +364,6 @@ def main() -> None:
                 done = True
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # TODO does not work always right away
                 for button_rect, fname in ui.obj_map:
                     if button_rect.collidepoint(event.pos):
                         print(fname)
@@ -388,10 +374,9 @@ def main() -> None:
 
         pygame.display.flip()
         clock.tick(FPS)
-    return
 
-    while input('Run again with the same field? (Or type q to quit) ') != 'q':
-        print(game.run_again())
+    # while input('Run again with the same field? (Or type q to quit) ') != 'q':
+    #     print(game.run_again())
 
 
 if __name__ == '__main__':
