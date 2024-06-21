@@ -158,7 +158,8 @@ class UserInterface:
 
 
 class Field:
-    def __init__(self, config: Config, ui: UserInterface) -> None:
+    def __init__(self, config: Config, ui: UserInterface, animation: bool = True) -> None:
+        self.animation = animation
         self.cards_static = [card for card, count in config.cards.items() for _ in range(count)]
         self.cards = None
         self.direction = ''
@@ -181,14 +182,15 @@ class Field:
         shape = [(w // 2, h // 2), (w // 2 + 400 * math.cos(angle),
                                     h // 2 + 400 * math.sin(angle))]
 
-        self.ui.reset_img()
-        center_image = self.ui.image_load(self.current_card_filename)
-        self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
+        if self.animation:
+            self.ui.reset_img()
+            center_image = self.ui.image_load(self.current_card_filename)
+            self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
 
-        pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
-        # img.show()
-        pygame.display.flip()
-        sleep(.55)  # pygame.time.wait?
+            pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
+            # img.show()
+            pygame.display.flip()
+            sleep(.55)  # pygame.time.wait?
         return next(self.cards)
 
     def next_invisible(self):
@@ -211,6 +213,56 @@ class Field:
         card = ''
         while card != start_lab:
             card = self.next_invisible()
+
+    def show_throw(self, card: str, labs: tuple[str, str]):
+        w = self.ui.width
+        h = self.ui.height
+        direction, lab = labs
+        # self.current_card_filename = 
+        center_image = self.ui.image_load(f'{card}.png')  # self.current_card_filename
+        self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40 - 80))
+        center_image = self.ui.image_load(f'{lab}_lab.png')
+        self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
+
+        # center_image = self.ui.image_load(f'{lab}_lab.png')  # TODO big curly arrow?
+        h_offset = w // 2 - 30
+        v_offset = 100
+        scale = .2
+        # surf = pygame.Surface((w, h))
+        if direction == 'white':
+            color = (255, 255, 255)
+            coordinates = (
+                (h_offset + scale *   0, v_offset + scale * 100),
+                (h_offset + scale *   0, v_offset + scale * 200),
+                (h_offset + scale * 250, v_offset + scale * 200),
+                (h_offset + scale * 250, v_offset + scale * 300),
+                (h_offset + scale * 350, v_offset + scale * 150),
+                (h_offset + scale * 250, v_offset + scale *   0),
+                (h_offset + scale * 250, v_offset + scale * 100),
+            )
+        elif direction == 'black':
+            color = (0, 0, 0)
+            coordinates = (
+                (h_offset + scale * (350 -   0), v_offset + scale * 100),
+                (h_offset + scale * (350 -   0), v_offset + scale * 200),
+                (h_offset + scale * (350 - 250), v_offset + scale * 200),
+                (h_offset + scale * (350 - 250), v_offset + scale * 300),
+                (h_offset + scale * (350 - 350), v_offset + scale * 150),
+                (h_offset + scale * (350 - 250), v_offset + scale *   0),
+                (h_offset + scale * (350 - 250), v_offset + scale * 100),
+            )
+        else:
+            raise ValueError('Invalid direction provided')
+        pygame.draw.polygon(
+            self.ui.img,
+            # ((w // 2) - 40, (h // 2) + 40),
+            color, coordinates,
+        )
+        # pygame.transform.scale_by(surf, .5)
+        # Generate arrow on the fly or have png? Start with big narrow arrow with neutral background and correct direction color
+        # self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
+        # self.ui.blit(surf, (0, 0))
+        pygame.display.flip()
 
 
 class Game:
@@ -257,6 +309,11 @@ class Game:
                 setattr(self, attrname, val)
 
     def run(self) -> Generator[str, None, None]:
+        if not self.field.animation:
+            self.field.show_throw(
+                f'{self.config.colors_map[self.colors]}_{self.config.stripes_map[self.stripes]}_{self.eyes}',
+                self.labs,
+            )
         count = 0
         while True:
             # count = self.game_loop(count) - save 1 indentation level
@@ -291,7 +348,6 @@ class Game:
             yield ''  # TODO decouple the computation from visualisation
 
     def run_again(self) -> Generator[str, None, None]:
-        # TODO remove the lines
         self.throw_dice()
         # self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
@@ -304,7 +360,7 @@ def main() -> None:
 
     config = Config()
     ui = UserInterface()
-    game = Game(config, Field(config, ui))
+    game = Game(config, Field(config, ui, animation=True))
     cards = game.run()
     card = None
 
@@ -321,6 +377,7 @@ def main() -> None:
                 done = True
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # TODO does not work always right away
                 for button_rect, fname in ui.obj_map:
                     if button_rect.collidepoint(event.pos):
                         print(fname)
