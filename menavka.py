@@ -72,7 +72,7 @@ class UserInterface:
         self.img.fill(self.background)
         self.transparent_layer = None
 
-    def arrange_images_in_circle(self, imagesToArrange: list) -> Generator[pygame.Rect, None, None]:
+    def arrange_images_in_circle(self, imagesToArrange: list) -> Generator[tuple[pygame.Rect, pygame.Surface], None, None]:
         # pylint: disable=invalid-name
         imgWidth = self.width
         imgHeight = self.height
@@ -113,7 +113,7 @@ class UserInterface:
             rect.update(*pos, 80, 80)  # TODO 80 as global var
             # drawing the rotated rectangle to the screen
             self.blit(new_image, pos)
-            yield rect
+            yield rect, new_image
 
     def show(self, cards, direction):
         cards_to_show = list(reversed(cards)) if direction == 'black' else cards
@@ -133,6 +133,14 @@ class UserInterface:
 
     def reset_img(self):
         self.blit(self.transparent_layer, (0, 0))
+
+    def update_color(self, rectangle, img):
+        # pylint: disable=invalid-name
+        w, h = img.get_size()
+        for x, y in itertools.product(range(w), range(h)):
+            r, g, b, a = img.get_at((x, y))
+            img.set_at((x, y), pygame.Color(r // 2, g, b, a))
+        self.blit(img, rectangle)
 
     @staticmethod
     @lru_cache()
@@ -226,24 +234,24 @@ class Field:
         if direction == 'white':
             color = (255, 255, 255)
             coordinates = (
-                (h_offset + scale *   0, v_offset + scale * 100),
-                (h_offset + scale *   0, v_offset + scale * 200),
-                (h_offset + scale * 250, v_offset + scale * 200),
-                (h_offset + scale * 250, v_offset + scale * 300),
-                (h_offset + scale * 350, v_offset + scale * 150),
-                (h_offset + scale * 250, v_offset + scale *   0),
-                (h_offset + scale * 250, v_offset + scale * 100),
+                (h_offset + scale *   0, v_offset + scale * 100),  # noqa: E222
+                (h_offset + scale *   0, v_offset + scale * 200),  # noqa: E222
+                (h_offset + scale * 250, v_offset + scale * 200),  # noqa: E222
+                (h_offset + scale * 250, v_offset + scale * 300),  # noqa: E222
+                (h_offset + scale * 350, v_offset + scale * 150),  # noqa: E222
+                (h_offset + scale * 250, v_offset + scale *   0),  # noqa: E222
+                (h_offset + scale * 250, v_offset + scale * 100),  # noqa: E222
             )
         elif direction == 'black':
             color = (0, 0, 0)
             coordinates = (
-                (h_offset + scale * (350 -   0), v_offset + scale * 100),
-                (h_offset + scale * (350 -   0), v_offset + scale * 200),
-                (h_offset + scale * (350 - 250), v_offset + scale * 200),
-                (h_offset + scale * (350 - 250), v_offset + scale * 300),
-                (h_offset + scale * (350 - 350), v_offset + scale * 150),
-                (h_offset + scale * (350 - 250), v_offset + scale *   0),
-                (h_offset + scale * (350 - 250), v_offset + scale * 100),
+                (h_offset + scale * (350 -   0), v_offset + scale * 100),  # noqa: E222
+                (h_offset + scale * (350 -   0), v_offset + scale * 200),  # noqa: E222
+                (h_offset + scale * (350 - 250), v_offset + scale * 200),  # noqa: E222
+                (h_offset + scale * (350 - 250), v_offset + scale * 300),  # noqa: E222
+                (h_offset + scale * (350 - 350), v_offset + scale * 150),  # noqa: E222
+                (h_offset + scale * (350 - 250), v_offset + scale *   0),  # noqa: E222
+                (h_offset + scale * (350 - 250), v_offset + scale * 100),  # noqa: E222
             )
         else:
             raise ValueError('Invalid direction provided')
@@ -378,10 +386,9 @@ def main() -> None:
                 done = True
 
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for button_rect, fname in ui.obj_map:
+                for (button_rect, img), fname in ui.obj_map:
                     if button_rect.collidepoint(event.pos):
-                        print(fname)
-                        # TODO change card color to mark it selected
+                        game.field.ui.update_color(button_rect, img)
                         if fname == card:
                             print('Correct!')
                             if not animation:
