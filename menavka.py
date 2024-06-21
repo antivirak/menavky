@@ -68,15 +68,12 @@ class UserInterface:
         self.width = width
         self.height = height
         self.background = (214, 188, 155)  # (255, 255, 255)
-        # self.img = Image.new("RGB", (self.width, self.height), self.background)
         self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
         self.img.fill(self.background)
-        # transparent_layer = pygame.Surface((width + (2 * border), height + (2 * border)), pygame.SRCALPHA)
-        self.transparent_layer = None  # self.img.copy()  # transparent_layer.convert_alpha()
+        self.transparent_layer = None
 
     def arrange_images_in_circle(self, imagesToArrange: list) -> Generator[pygame.Rect, None, None]:
         # pylint: disable=invalid-name
-        # masterImage = self.img
         imgWidth = self.width
         imgHeight = self.height
 
@@ -96,7 +93,6 @@ class UserInterface:
         theta = 2 * math.pi / len(imagesToArrange)
 
         for i, curImg in enumerate(imagesToArrange):
-            # button_surface = curImg  # pygame.Surface((80, 80))
             angle = i * theta
             dx = int(radius * math.cos(angle))
             dy = int(radius * math.sin(angle))
@@ -120,7 +116,7 @@ class UserInterface:
             yield rect
 
     def show(self, cards, direction):
-        cards_to_show = reversed(cards) if direction == 'black' else cards
+        cards_to_show = list(reversed(cards)) if direction == 'black' else cards
         images = [
             Image
             .open(f'menavky/{filename}.{EXTENSION}')
@@ -151,21 +147,24 @@ class Field:
         self.cards = None
         self.direction = ''
         self.ui = ui
-        self.next_count = -1
+        self.next_count = 0
         self.current_card_filename = ''
 
     def __len__(self):
         return len(self.cards_static)
 
     def __next__(self, visible: bool = True):
-        self.next_count += 1
         if not visible:
+            if self.direction == 'black':
+                self.next_count -= 1
+            else:
+                self.next_count += 1
             return next(self.cards)
         w = self.ui.width
         h = self.ui.height
-        angle = 2 * math.pi / len(self) * (self.next_count * (
-            -1 if self.direction == 'black' else 1
-        ) - (1 if self.direction == 'black' else 0))
+        angle = 2 * math.pi / len(self) * (self.next_count - (
+            1 if self.direction == 'black' else 0
+        ))
         shape = [(w // 2, h // 2), (w // 2 + 400 * math.cos(angle),
                                     h // 2 + 400 * math.sin(angle))]
 
@@ -175,9 +174,12 @@ class Field:
             self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
 
             pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
-            # img.show()
             pygame.display.flip()
             sleep(.55)  # pygame.time.wait?
+        if self.direction == 'black':
+            self.next_count -= 1
+        else:
+            self.next_count += 1
         return next(self.cards)
 
     def next_invisible(self):
@@ -196,7 +198,11 @@ class Field:
         random.shuffle(self.cards_static)  # mutates the list :(
 
     def cycle_to_start(self, start_lab: str, direction: str):
-        self.direction = direction  # TODO when changing direction, the animation breaks
+        if self.direction != direction:
+            self.direction = direction
+            self.cards_static.reverse()
+            self.cards = itertools.cycle(self.cards_static)
+            self.next_count = 0
         card = ''
         while card != start_lab:
             card = self.next_invisible()
@@ -206,17 +212,17 @@ class Field:
         w = self.ui.width
         h = self.ui.height
         direction, lab = labs
-        # self.current_card_filename = 
-        center_image = self.ui.image_load(f'{card}.png')  # self.current_card_filename
+
+        center_image = self.ui.image_load(f'{card}.png')
         self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40 - 80))
         center_image = self.ui.image_load(f'{lab}_lab.png')
         self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
 
-        # center_image = self.ui.image_load(f'{lab}_lab.png')  # TODO big curly arrow?
         h_offset = w // 2 - 30
         v_offset = 100
         scale = .2
-        # surf = pygame.Surface((w, h))
+        # Big curly arrow instead?
+        # Generate arrow on the fly or have png?
         if direction == 'white':
             color = (255, 255, 255)
             coordinates = (
@@ -241,15 +247,7 @@ class Field:
             )
         else:
             raise ValueError('Invalid direction provided')
-        pygame.draw.polygon(
-            self.ui.img,
-            # ((w // 2) - 40, (h // 2) + 40),
-            color, coordinates,
-        )
-        # pygame.transform.scale_by(surf, .5)
-        # Generate arrow on the fly or have png? Start with big narrow arrow with neutral background and correct direction color
-        # self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
-        # self.ui.blit(surf, (0, 0))
+        pygame.draw.polygon(self.ui.img, color, coordinates)
         pygame.display.flip()
 
 
@@ -285,7 +283,7 @@ class Game:
         for attrname, _map in attrnames.items():
             print(f'{attrname}: {_map(getattr(self, attrname))}')
 
-    def throw_manual(self) -> None:
+    def _throw_manual(self) -> None:
         for attrname in ('labs', 'eyes', 'stripes', 'colors'):
             if attrname == 'labs':
                 value2 = input(f'Enter {attrname} die value (red / blue / yellow): ').strip()
@@ -311,7 +309,6 @@ class Game:
         count = 0
         while True:
             # count = self.game_loop(count) - save 1 indentation level
-            # card = self.field.next_with_state(card_to_find)
             card_to_find = f'{self.config.colors_map[self.colors]}_{self.config.stripes_map[self.stripes]}_{self.eyes}'
             self.field.current_card_filename = f'{card_to_find}.{EXTENSION}'
             # self.field is not-exhaustable generator
@@ -343,7 +340,6 @@ class Game:
 
     def run_again(self) -> Generator[str, None, None]:
         self.throw_dice()
-        # self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         return self.run()
 
@@ -364,7 +360,8 @@ def main() -> None:
 
     config = Config()
     ui = UserInterface()
-    game = Game(config, Field(config, ui, animation=False))
+    animation = False
+    game = Game(config, Field(config, ui, animation=animation))
     cards = game.run()
     card = None
 
@@ -384,9 +381,11 @@ def main() -> None:
                 for button_rect, fname in ui.obj_map:
                     if button_rect.collidepoint(event.pos):
                         print(fname)
+                        # TODO change card color to mark it selected
                         if fname == card:
                             print('Correct!')
-                            game.replay_correct()
+                            if not animation:
+                                game.replay_correct()
                             cards = game.run_again()
                             card = None
 
