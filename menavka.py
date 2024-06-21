@@ -260,12 +260,19 @@ class Game:
         self.field = field.create(f'{self.labs[1]}_lab', self.labs[0])  # TODO allow manual; and from photo
         self.field_len = len(self.field)
 
+    def set_init_dice_vals(self):
+        self.labs = self.init_labs
+        self.eyes = self.init_eyes
+        self.stripes = self.init_stripes
+        self.colors = self.init_colors
+
     def throw_dice(self) -> None:
         # pylint: disable=attribute-defined-outside-init
-        self.labs = random.choice(self.config.labs_dice)
-        self.eyes = random.choice(self.config.eyes_dice)
-        self.stripes = random.choice(self.config.stripes_dice)
-        self.colors = random.choice(self.config.colors_dice)
+        self.init_labs = random.choice(self.config.labs_dice)
+        self.init_eyes = random.choice(self.config.eyes_dice)
+        self.init_stripes = random.choice(self.config.stripes_dice)
+        self.init_colors = random.choice(self.config.colors_dice)
+        self.set_init_dice_vals()
         self.print_dice()
 
     def print_dice(self) -> None:
@@ -340,6 +347,16 @@ class Game:
         self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         return self.run()
 
+    def replay_correct(self):
+        self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
+        self.set_init_dice_vals()
+        assert not self.field.animation
+        self.field.animation = True
+        cards = self.run()
+        while not next(cards):  # bump generator until it returns value
+            pass
+        self.field.animation = False
+
 
 def main() -> None:
     pygame.init()
@@ -369,6 +386,7 @@ def main() -> None:
                         print(fname)
                         if fname == card:
                             print('Correct!')
+                            game.replay_correct()
                             cards = game.run_again()
                             card = None
 
