@@ -5,7 +5,7 @@ import math
 import random
 from functools import lru_cache
 from time import sleep
-from typing import Generator
+from typing import Generator, Iterator
 
 import pygame  # pygame==2.5.2
 from PIL import Image  # pillow==10.3.0
@@ -72,7 +72,7 @@ class UserInterface:
         self.img.fill(self.background)
         self.transparent_layer = None
 
-    def arrange_images_in_circle(self, imagesToArrange: list) -> Generator[tuple[pygame.Rect, pygame.Surface], None, None]:
+    def arrange_images_in_circle(self, imagesToArrange: list) -> Iterator[tuple[pygame.Rect, pygame.Surface]]:
         # pylint: disable=invalid-name
         imgWidth = self.width
         imgHeight = self.height
@@ -358,7 +358,7 @@ class Game:
         self.field.animation = True
         cards = self.run()
         while not next(cards):  # bump generator until it returns value
-            pass
+            pass  # itertools.dropwhile?
         self.field.animation = False
 
 
