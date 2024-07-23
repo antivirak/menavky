@@ -12,6 +12,7 @@ from PIL import Image
 
 EXTENSION = 'png'
 FPS = 24
+CARD_SIZE = 80
 width = 800
 height = 800
 
@@ -83,8 +84,8 @@ class UserInterface:
         # those images will partially fall over the edge.
         # so we reduce the diameter of the circle by the width/height of the widest/tallest image.
         diameter = min(
-            imgWidth  - 80,
-            imgHeight - 80
+            imgWidth  - CARD_SIZE,
+            imgHeight - CARD_SIZE
         )
         radius = diameter / 2
 
@@ -101,7 +102,7 @@ class UserInterface:
             # So we must subtract half the height/width of the image
             # to find where their top-left corners should be.
             # size = curImg.get_size()
-            size = (80, 80)
+            size = (CARD_SIZE, CARD_SIZE)
             pos = (
                 circleCenterX + dx - size[0] // 2,
                 circleCenterY + dy - size[1] // 2
@@ -110,7 +111,7 @@ class UserInterface:
 
             new_image = pygame.transform.smoothscale(pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode), (85, 85))
             rect = new_image.get_rect()
-            rect.update(*pos, 80, 80)  # TODO 80 as global var
+            rect.update(*pos, *size)
             # drawing the rotated rectangle to the screen
             self.blit(new_image, pos)
             yield rect, new_image
@@ -178,7 +179,10 @@ class Field:
 
         if self.animation:
             self.ui.reset_img()
-            center_image = pygame.transform.smoothscale(self.ui.image_load(self.current_card_filename), (80, 80))
+            center_image = pygame.transform.smoothscale(
+                self.ui.image_load(self.current_card_filename),
+                (CARD_SIZE, CARD_SIZE),
+            )
             self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
 
             pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
@@ -221,9 +225,15 @@ class Field:
         h = self.ui.height
         direction, lab = labs
 
-        center_image = pygame.transform.smoothscale(self.ui.image_load(f'{card}.png'), (80, 80))
+        center_image = pygame.transform.smoothscale(
+            self.ui.image_load(f'{card}.png'),
+            (CARD_SIZE, CARD_SIZE),
+        )
         self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40 - 80))
-        center_image = pygame.transform.smoothscale(self.ui.image_load(f'{lab}_lab.png'), (80, 80))
+        center_image = pygame.transform.smoothscale(
+            self.ui.image_load(f'{lab}_lab.png'),
+            (CARD_SIZE, CARD_SIZE),
+        )
         self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
 
         h_offset = w // 2 - 30
