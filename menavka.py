@@ -109,7 +109,10 @@ class UserInterface:
             )
             rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)  # .resize((80, 80))
 
-            new_image = pygame.transform.smoothscale(pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode), (85, 85))
+            new_image = pygame.transform.smoothscale(
+                pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode),
+                (CARD_SIZE + 5, CARD_SIZE + 5),  # TODO scale based on dy
+            )
             rect = new_image.get_rect()
             rect.update(*pos, *size)
             # drawing the rotated rectangle to the screen
