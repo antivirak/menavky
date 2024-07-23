@@ -85,7 +85,7 @@ class UserInterface:
         # so we reduce the diameter of the circle by the width/height of the widest/tallest image.
         diameter = min(
             imgWidth  - CARD_SIZE,
-            imgHeight - CARD_SIZE
+            imgHeight - CARD_SIZE,
         )
         radius = diameter / 2
 
@@ -113,6 +113,7 @@ class UserInterface:
                 pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode),
                 (CARD_SIZE + 5, CARD_SIZE + 5),  # TODO scale based on dy
             )
+
             rect = new_image.get_rect()
             rect.update(*pos, *size)
             # drawing the rotated rectangle to the screen
@@ -126,6 +127,20 @@ class UserInterface:
             .open(f'menavky/{filename}.{EXTENSION}')
             .convert('RGBA') for filename in cards_to_show
         ]
+
+        # for count, (image, name) in enumerate(zip(images, cards_to_show)):
+        #     if not name.endswith('_mutation'):
+        #         continue
+        #     image = pygame.image.fromstring(image.tobytes(), image.size, image.mode)
+        #     w, h = image.get_size()
+        #     for x, y in itertools.product(range(w), range(h)):
+        #         r, g, b, a = image.get_at((x, y))
+        #         if r < 80 or g < 80 or b < 80:
+        #             image.set_at((x, y), pygame.Color(255, 255, 255, a))
+        #         else:
+        #             image.set_at((x, y), pygame.Color(0, 133, 124, a))
+        #     pygame.image.save(image, f'menavky/{name}_blued.{EXTENSION}')
+
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
         self.update_transparent_layer()
 
@@ -377,7 +392,7 @@ class Game:
 
 def main() -> None:
     pygame.init()
-    pygame.display.set_caption("Mněňavky")
+    pygame.display.set_caption("Find the amino acid!")
 
     config = Config()
     ui = UserInterface()
@@ -398,16 +413,20 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 done = True
 
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                for (button_rect, img), fname in ui.obj_map:
-                    if button_rect.collidepoint(event.pos):
-                        game.field.ui.update_color(button_rect, img)
-                        if fname == card:
-                            print('Correct!')
-                            if not animation:
-                                game.replay_correct()
-                            cards = game.run_again()
-                            card = None
+            if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
+                continue
+            # TODO zoom on hover
+
+            for (button_rect, img), fname in ui.obj_map:
+                if not button_rect.collidepoint(event.pos):
+                    continue
+                game.field.ui.update_color(button_rect, img)
+                if fname == card:
+                    print('Correct!')
+                    if not animation:
+                        game.replay_correct()
+                    cards = game.run_again()
+                    card = None
 
         pygame.display.flip()
         clock.tick(FPS)
