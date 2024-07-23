@@ -152,10 +152,21 @@ class UserInterface:
     def update_color(self, rectangle, img):
         # pylint: disable=invalid-name
         w, h = img.get_size()
+        new_img = img.copy()
         for x, y in itertools.product(range(w), range(h)):
-            r, g, b, a = img.get_at((x, y))
-            img.set_at((x, y), pygame.Color(r // 2, g, b, a))
-        self.blit(img, rectangle)
+            r, g, b, a = new_img.get_at((x, y))
+            new_img.set_at((x, y), pygame.Color(r // 2, g, b, a))
+        self.blit(new_img, rectangle)
+
+    def zoom_hovered(self, rectangle: pygame.Rect, img: pygame.Surface) -> pygame.Surface:
+        current_screen = self.img.copy()
+        rectangle = rectangle.move(
+            (self.width  // 3 - rectangle.x) // 2,
+            (self.height // 3 - rectangle.y) // 2,
+        )
+        # I could also show the image not rotated
+        self.blit(pygame.transform.smoothscale_by(img, (2, 2)), rectangle)
+        return current_screen
 
     @staticmethod
     @lru_cache()
@@ -402,6 +413,8 @@ def main() -> None:
 
     # basicfont = pygame.font.SysFont(None, 32)
 
+    hovered = None
+    current_screen = None
     while not done:
         if not card:
             card = next(cards)
@@ -409,20 +422,30 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 done = True
 
-            if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
-                continue
-            # TODO zoom on hover
-
             for (button_rect, img), fname in ui.obj_map:
-                if not button_rect.collidepoint(event.pos):
-                    continue
-                game.field.ui.update_color(button_rect, img)
-                if fname == card:
-                    print('Correct!')
-                    if not animation:
-                        game.replay_correct()
-                    cards = game.run_again()
-                    card = None
+                if button_rect.collidepoint(pygame.mouse.get_pos()):
+                    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        game.field.ui.update_color(button_rect, img)
+                        # save the change in color to current_screen
+                        current_screen = game.field.ui.zoom_hovered(button_rect, img)
+                        if fname == card:
+                            print('Correct!')
+                            if not animation:
+                                game.replay_correct()
+                            cards = game.run_again()
+                            card = None
+                            current_screen = None
+                        break
+
+                    if hovered is not None and hovered != img:
+                        game.field.ui.blit(current_screen, (0, 0))
+                    screen = game.field.ui.zoom_hovered(button_rect, img)
+                    current_screen = current_screen or screen
+                    hovered = img
+                    break
+                if hovered is not None:
+                    game.field.ui.blit(current_screen, (0, 0))
+                    hovered = None
 
         pygame.display.flip()
         clock.tick(FPS)
