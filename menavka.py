@@ -7,8 +7,8 @@ from functools import lru_cache
 from time import sleep
 from typing import Generator, Iterator
 
-import pygame  # pygame==2.5.2
-from PIL import Image  # pillow==10.3.0
+import pygame
+from PIL import Image
 
 EXTENSION = 'png'
 FPS = 24
