@@ -83,8 +83,8 @@ class UserInterface:
         # those images will partially fall over the edge.
         # so we reduce the diameter of the circle by the width/height of the widest/tallest image.
         diameter = min(
-            imgWidth  - max(img.size[0] for img in imagesToArrange),
-            imgHeight - max(img.size[1] for img in imagesToArrange)
+            imgWidth  - 80,
+            imgHeight - 80
         )
         radius = diameter / 2
 
@@ -101,14 +101,14 @@ class UserInterface:
             # So we must subtract half the height/width of the image
             # to find where their top-left corners should be.
             # size = curImg.get_size()
-            size = curImg.size
+            size = (80, 80)
             pos = (
                 circleCenterX + dx - size[0] // 2,
                 circleCenterY + dy - size[1] // 2
             )
-            rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)
+            rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)  # .resize((80, 80))
 
-            new_image = pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode)
+            new_image = pygame.transform.smoothscale(pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode), (85, 85))
             rect = new_image.get_rect()
             rect.update(*pos, 80, 80)  # TODO 80 as global var
             # drawing the rotated rectangle to the screen
@@ -121,7 +121,7 @@ class UserInterface:
             Image
             .open(f'menavky/{filename}.{EXTENSION}')
             .convert('RGBA') for filename in cards_to_show
-        ]  # .resize((80, 80))
+        ]
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
         self.update_transparent_layer()
 
@@ -178,7 +178,7 @@ class Field:
 
         if self.animation:
             self.ui.reset_img()
-            center_image = self.ui.image_load(self.current_card_filename)
+            center_image = pygame.transform.smoothscale(self.ui.image_load(self.current_card_filename), (80, 80))
             self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
 
             pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
@@ -221,9 +221,9 @@ class Field:
         h = self.ui.height
         direction, lab = labs
 
-        center_image = self.ui.image_load(f'{card}.png')
+        center_image = pygame.transform.smoothscale(self.ui.image_load(f'{card}.png'), (80, 80))
         self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40 - 80))
-        center_image = self.ui.image_load(f'{lab}_lab.png')
+        center_image = pygame.transform.smoothscale(self.ui.image_load(f'{lab}_lab.png'), (80, 80))
         self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
 
         h_offset = w // 2 - 30
