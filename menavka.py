@@ -109,7 +109,13 @@ class UserInterface:
                 circleCenterY + dy - size[1] // 2
             )
             original_size = curImg.size
-            rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)  # .resize((80, 80))
+            shorter_side = min(original_size)
+            original_size = (shorter_side, shorter_side)
+            rot = (
+                curImg
+                .resize(original_size)  # TODO crop would be better
+                .rotate(-angle / math.pi * 180 - 90, expand=True)
+            )
 
             scale = rot.size[1] / original_size[1]
             new_image = pygame.transform.smoothscale(
