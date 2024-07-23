@@ -15,6 +15,7 @@ FPS = 24
 CARD_SIZE = 80
 width = 800
 height = 800
+# TODO maybe thicker lines?
 
 
 class Config:
@@ -107,11 +108,13 @@ class UserInterface:
                 circleCenterX + dx - size[0] // 2,
                 circleCenterY + dy - size[1] // 2
             )
+            original_size = curImg.size
             rot = curImg.rotate(-angle / math.pi * 180 - 90, expand=True)  # .resize((80, 80))
 
+            scale = rot.size[1] / original_size[1]
             new_image = pygame.transform.smoothscale(
                 pygame.image.fromstring(rot.tobytes(), rot.size, rot.mode),
-                (CARD_SIZE + 5, CARD_SIZE + 5),  # TODO scale based on dy
+                (CARD_SIZE * scale, CARD_SIZE * scale),
             )
 
             rect = new_image.get_rect()
@@ -127,19 +130,6 @@ class UserInterface:
             .open(f'menavky/{filename}.{EXTENSION}')
             .convert('RGBA') for filename in cards_to_show
         ]
-
-        # for count, (image, name) in enumerate(zip(images, cards_to_show)):
-        #     if not name.endswith('_mutation'):
-        #         continue
-        #     image = pygame.image.fromstring(image.tobytes(), image.size, image.mode)
-        #     w, h = image.get_size()
-        #     for x, y in itertools.product(range(w), range(h)):
-        #         r, g, b, a = image.get_at((x, y))
-        #         if r < 80 or g < 80 or b < 80:
-        #             image.set_at((x, y), pygame.Color(255, 255, 255, a))
-        #         else:
-        #             image.set_at((x, y), pygame.Color(0, 133, 124, a))
-        #     pygame.image.save(image, f'menavky/{name}_blued.{EXTENSION}')
 
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
         self.update_transparent_layer()
