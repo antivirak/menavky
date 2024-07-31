@@ -18,6 +18,18 @@ height = 800
 # TODO maybe thicker lines?
 
 
+# class RectWithCache(pygame.Rect):
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.full_image = None
+
+
+class RectWithCache:
+    def __init__(self, rect: pygame.Rect, full_img) -> None:
+        self.rect = rect
+        self.full_image = full_img
+
+
 class Config:
     """
     Game configuration - could be in separate module / json
@@ -74,7 +86,7 @@ class UserInterface:
         self.img.fill(self.background)
         self.transparent_layer = None
 
-    def arrange_images_in_circle(self, imagesToArrange: list) -> Iterator[tuple[pygame.Rect, pygame.Surface]]:
+    def arrange_images_in_circle(self, imagesToArrange: list) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
         # pylint: disable=invalid-name
         imgWidth = self.width
         imgHeight = self.height
@@ -106,7 +118,7 @@ class UserInterface:
             size = (CARD_SIZE, CARD_SIZE)
             pos = (
                 circleCenterX + dx - size[0] // 2,
-                circleCenterY + dy - size[1] // 2
+                circleCenterY + dy - size[1] // 2,
             )
             original_size = curImg.size
             shorter_side = min(original_size)
@@ -125,9 +137,13 @@ class UserInterface:
 
             rect = new_image.get_rect()
             rect.update(*pos, *size)
+            # rect.full_image = curImg
             # drawing the rotated rectangle to the screen
             self.blit(new_image, pos)
-            yield rect, new_image
+            yield (
+                RectWithCache(rect, pygame.image.fromstring(curImg.tobytes(), curImg.size, curImg.mode)),
+                new_image,
+            )
 
     def show(self, cards, direction):
         cards_to_show = list(reversed(cards)) if direction == 'black' else cards
@@ -158,14 +174,17 @@ class UserInterface:
             new_img.set_at((x, y), pygame.Color(r // 2, g, b, a))
         self.blit(new_img, rectangle)
 
-    def zoom_hovered(self, rectangle: pygame.Rect, img: pygame.Surface) -> pygame.Surface:
+    def zoom_hovered(self, rectangle_wc: RectWithCache) -> pygame.Surface:
+        rectangle = rectangle_wc.rect
         current_screen = self.img.copy()
         rectangle = rectangle.move(
             (self.width  // 3 - rectangle.x) // 2,
             (self.height // 3 - rectangle.y) // 2,
         )
-        # I could also show the image not rotated
-        self.blit(pygame.transform.smoothscale_by(img, (2, 2)), rectangle)
+        # I could also show the image rotated, but this is better
+        self.blit(pygame.transform.smoothscale(
+            rectangle_wc.full_image, (CARD_SIZE * 2, CARD_SIZE * 2),
+        ), rectangle)
         return current_screen
 
     @staticmethod
@@ -206,7 +225,7 @@ class Field:
             self.ui.reset_img()
             center_image = pygame.transform.smoothscale(
                 self.ui.image_load(self.current_card_filename),
-                (CARD_SIZE, CARD_SIZE),
+                (CARD_SIZE * 1.5, CARD_SIZE * 1.5),
             )
             self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
 
@@ -252,14 +271,17 @@ class Field:
 
         center_image = pygame.transform.smoothscale(
             self.ui.image_load(f'{card}.png'),
-            (CARD_SIZE, CARD_SIZE),
+            (CARD_SIZE * 1.5, CARD_SIZE * 1.5),
         )
-        self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40 - 80))
+        self.ui.blit(
+            center_image,
+            ((w // 2) - CARD_SIZE * 1.5 / 2, (h // 2) - CARD_SIZE / 2 - CARD_SIZE),
+        )
         center_image = pygame.transform.smoothscale(
             self.ui.image_load(f'{lab}_lab.png'),
             (CARD_SIZE, CARD_SIZE),
         )
-        self.ui.blit(center_image, ((w // 2) - 40, (h // 2) + 40))
+        self.ui.blit(center_image, ((w // 2) - CARD_SIZE / 2, (h // 2) + CARD_SIZE / 2))
 
         h_offset = w // 2 - 30
         v_offset = 100
@@ -422,12 +444,13 @@ def main() -> None:
             if event.type == pygame.QUIT:
                 done = True
 
-            for (button_rect, img), fname in ui.obj_map:
+            for (button_rect_wc, img), fname in ui.obj_map:
+                button_rect = button_rect_wc.rect
                 if button_rect.collidepoint(pygame.mouse.get_pos()):
                     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         game.field.ui.update_color(button_rect, img)
                         # save the change in color to current_screen
-                        current_screen = game.field.ui.zoom_hovered(button_rect, img)
+                        current_screen = game.field.ui.zoom_hovered(button_rect_wc)
                         if fname == card:
                             print('Correct!')
                             if not animation:
@@ -439,7 +462,7 @@ def main() -> None:
 
                     if hovered is not None and hovered != img:
                         game.field.ui.blit(current_screen, (0, 0))
-                    screen = game.field.ui.zoom_hovered(button_rect, img)
+                    screen = game.field.ui.zoom_hovered(button_rect_wc)
                     current_screen = current_screen or screen
                     hovered = img
                     break
