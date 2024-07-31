@@ -23,7 +23,7 @@ There are 4 types of cards in the game:
 
 <img src="menavky/ventilation.png" alt="Cell membrane" height="200"/>
 
-* *chemical reaction* cards - they alter the molecule in a specific way; thoroughly explained lower!
+* *chemical reaction* cards - they alter the molecule in a specific way; thoroughly explained below!
 
 <img src="menavky/eyes_mutation.png" alt="Bn protection" height="200"/>
 
@@ -56,7 +56,7 @@ If the molecule goes through any of the transformations for the second time, it 
 The reactions do not work with 100 % efficiency though. If the molecule undergoes any transformation forth time, it is destroyed, and the goal of the game is to click on the card with the latest transformation.
 
 Once you select the correct card with the molecule, an animation is played showing the path of the molecule.
-If you select a card and it only changes color to blue without any animation, you have chosen wrong card. Try again!
+If you select a card and it only changes color to blue without any animation, you have chosen the wrong card. Try again!
 
 Have fun!
 
