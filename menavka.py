@@ -4,18 +4,43 @@ import itertools
 import math
 import random
 from functools import lru_cache
+from itertools import dropwhile
 from time import sleep
 from typing import Generator, Iterator
 
+import numpy as np
 import pygame
 from PIL import Image
 
+from mol2geom import mol2geom
+
 EXTENSION = 'png'
-FPS = 24
+FPS = 48
 CARD_SIZE = 80
+ROTATE_SPEED = .02
+SCALE = 18
 width = 800
 height = 800
 # TODO maybe thicker lines?
+
+with open("molfiles/Bn_boc_ser.mol") as f:
+    _ = dropwhile(lambda x: 'V2000' not in x, f.readlines())
+cube_points, bonds, atoms = mol2geom(list(_))
+projection_matrix = np.array(
+    [[1, 0, 0],
+     [0, 1, 0],
+     [0, 0, 0]]
+)
+atoms_to_color = {
+    'C': (255, 255, 255),
+    'H': (0, 0, 0),
+    'O': (255, 0, 0),
+    'N': (0, 0, 255),
+    'Cl': (0, 255, 0),
+    'F': (0, 255, 255),
+    'Br': (255, 0, 255),
+    'I': (255, 255, 0),
+}
 
 
 # class RectWithCache(pygame.Rect):
@@ -85,6 +110,9 @@ class UserInterface:
         self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
         self.img.fill(self.background)
         self.transparent_layer = None
+        self.angle_x = 0
+        self.angle_y = 0
+        self.angle_z = 0
 
     def arrange_images_in_circle(self, imagesToArrange: list) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
         # pylint: disable=invalid-name
@@ -156,8 +184,8 @@ class UserInterface:
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
         self.update_transparent_layer()
 
-    def blit(self, surface, pos):
-        self.img.blit(surface, pos)
+    def blit(self, surface, pos) -> pygame.Rect:
+        return self.img.blit(surface, pos)
 
     def update_transparent_layer(self):
         self.transparent_layer = self.img.copy()
@@ -181,11 +209,49 @@ class UserInterface:
             (self.width  // 3 - rectangle.x) // 2,
             (self.height // 3 - rectangle.y) // 2,
         )
-        # I could also show the image rotated, but this is better
-        self.blit(pygame.transform.smoothscale(
-            rectangle_wc.full_image, (CARD_SIZE * 2, CARD_SIZE * 2),
-        ), rectangle)
-        return current_screen
+
+        rotation_x = np.array([
+            [1, 0, 0],
+            [0, math.cos(self.angle_x), -math.sin(self.angle_x)],
+            [0, math.sin(self.angle_x), math.cos(self.angle_x)]]
+        )
+        rotation_y = np.array([
+            [math.cos(self.angle_y), 0, math.sin(self.angle_y)],
+            [0, 1, 0],
+            [-math.sin(self.angle_y), 0, math.cos(self.angle_y)]]
+        )
+        rotation_z = np.array([
+            [math.cos(self.angle_z), -math.sin(self.angle_z), 0],
+            [math.sin(self.angle_z), math.cos(self.angle_z), 0],
+            [0, 0, 1]]
+        )
+
+        points = np.zeros((len(cube_points), 2))
+        surf = pygame.Surface((rectangle.w * 2, rectangle.h * 2))
+        for i, point in enumerate(cube_points):
+            rotate_x = np.matmul(rotation_x, point)
+            rotate_y = np.matmul(rotation_y, rotate_x)
+            rotate_z = np.matmul(rotation_z, rotate_y)
+            point_2d = np.matmul(projection_matrix, rotate_z)
+
+            x = (point_2d[0] * SCALE) + CARD_SIZE
+            y = (point_2d[1] * SCALE) + CARD_SIZE
+
+            points[i] = (x, y)
+            pygame.draw.circle(surf, atoms_to_color[atoms[i]], (x, y), 5)
+        for bond in bonds:
+            pygame.draw.line(
+                surf,
+                (255, 255, 255),
+                (points[bond[0]][0], points[bond[0]][1]), (points[bond[1]][0], points[bond[1]][1]),
+                width=(bond[2] - 1) * 4 + 1,  # not possible for .aaline()
+            )
+        self.blit(surf, rectangle)
+
+        self.angle_y -= ROTATE_SPEED
+
+        #pygame.display.update(rectangle)
+        return current_screen, surf
 
     @staticmethod
     @lru_cache()
@@ -436,6 +502,7 @@ def main() -> None:
     # basicfont = pygame.font.SysFont(None, 32)
 
     hovered = None
+    last_hovered = None
     current_screen = None
     while not done:
         if not card:
@@ -450,7 +517,7 @@ def main() -> None:
                     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                         game.field.ui.update_color(button_rect, img)
                         # save the change in color to current_screen
-                        current_screen = game.field.ui.zoom_hovered(button_rect_wc)
+                        current_screen, surf = game.field.ui.zoom_hovered(button_rect_wc)
                         if fname == card:
                             print('Correct!')
                             if not animation:
@@ -460,15 +527,23 @@ def main() -> None:
                             current_screen = None
                         break
 
-                    if hovered is not None and hovered != img:
-                        game.field.ui.blit(current_screen, (0, 0))
-                    screen = game.field.ui.zoom_hovered(button_rect_wc)
+                    #if hovered is not None and hovered != img:
+                    #    game.field.ui.blit(current_screen, (0, 0))
+
+                    screen, surf = game.field.ui.zoom_hovered(button_rect_wc)
                     current_screen = current_screen or screen
+                    last_hovered = hovered
                     hovered = img
                     break
-                if hovered is not None:
+        if hovered is not None:
+            if button_rect.collidepoint(pygame.mouse.get_pos()):
+                screen = game.field.ui.zoom_hovered(button_rect_wc)
+                current_screen = current_screen or screen
+                #game.field.ui.blit(surf, (0, 0))
+            else:
+                if current_screen is not None:
                     game.field.ui.blit(current_screen, (0, 0))
-                    hovered = None
+                hovered = None
 
         pygame.display.flip()
         clock.tick(FPS)
