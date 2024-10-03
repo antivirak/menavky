@@ -3,10 +3,9 @@
 import itertools
 import math
 import random
+from collections.abc import Generator, Iterator
 from functools import lru_cache
-from itertools import dropwhile
 from time import sleep
-from typing import Generator, Iterator
 
 import numpy as np
 import pygame
@@ -23,30 +22,10 @@ width = 800
 height = 800
 # TODO maybe thicker lines?
 
+# TODO load the rest
 with open("molfiles/Bn_boc_ser.mol") as f:
-    _ = dropwhile(lambda x: 'V2000' not in x, f.readlines())
+    _ = itertools.dropwhile(lambda x: 'V2000' not in x, f.readlines())
 cube_points, bonds, atoms = mol2geom(list(_))
-projection_matrix = np.array(
-    [[1, 0, 0],
-     [0, 1, 0],
-     [0, 0, 0]]
-)
-atoms_to_color = {
-    'C': (255, 255, 255),
-    'H': (0, 0, 0),
-    'O': (255, 0, 0),
-    'N': (0, 0, 255),
-    'Cl': (0, 255, 0),
-    'F': (0, 255, 255),
-    'Br': (255, 0, 255),
-    'I': (255, 255, 0),
-}
-
-
-# class RectWithCache(pygame.Rect):
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         self.full_image = None
 
 
 class RectWithCache:
@@ -113,6 +92,21 @@ class UserInterface:
         self.angle_x = 0
         self.angle_y = 0
         self.angle_z = 0
+        self.projection_matrix = np.array(
+            [[1, 0, 0],
+             [0, 1, 0],
+             [0, 0, 0]]
+        )
+        self.atoms_to_color = {
+            'C': (255, 255, 255),
+            'H': (0, 0, 0),
+            'O': (255, 0, 0),
+            'N': (0, 0, 255),
+            'Cl': (0, 255, 0),
+            'F': (0, 255, 255),
+            'Br': (255, 0, 255),
+            'I': (255, 255, 0),
+        }
 
     def arrange_images_in_circle(self, imagesToArrange: list) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
         # pylint: disable=invalid-name
@@ -232,13 +226,13 @@ class UserInterface:
             rotate_x = np.matmul(rotation_x, point)
             rotate_y = np.matmul(rotation_y, rotate_x)
             rotate_z = np.matmul(rotation_z, rotate_y)
-            point_2d = np.matmul(projection_matrix, rotate_z)
+            point_2d = np.matmul(self.projection_matrix, rotate_z)
 
             x = (point_2d[0] * SCALE) + CARD_SIZE
             y = (point_2d[1] * SCALE) + CARD_SIZE
 
             points[i] = (x, y)
-            pygame.draw.circle(surf, atoms_to_color[atoms[i]], (x, y), 5)
+            pygame.draw.circle(surf, self.atoms_to_color[atoms[i]], (x, y), 5)
         for bond in bonds:
             pygame.draw.line(
                 surf,
@@ -247,11 +241,12 @@ class UserInterface:
                 width=(bond[2] - 1) * 4 + 1,  # not possible for .aaline()
             )
         self.blit(surf, rectangle)
+        rectangle.h = rectangle.h * 2  # not sure why
 
         self.angle_y -= ROTATE_SPEED
 
-        #pygame.display.update(rectangle)
-        return current_screen, surf
+        pygame.display.update(rectangle)
+        return current_screen
 
     @staticmethod
     @lru_cache()
@@ -515,9 +510,10 @@ def main() -> None:
                 button_rect = button_rect_wc.rect
                 if button_rect.collidepoint(pygame.mouse.get_pos()):
                     if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                        # TODO latest changes broke the correct screen save without animation
                         game.field.ui.update_color(button_rect, img)
                         # save the change in color to current_screen
-                        current_screen, surf = game.field.ui.zoom_hovered(button_rect_wc)
+                        current_screen = game.field.ui.zoom_hovered(button_rect_wc)
                         if fname == card:
                             print('Correct!')
                             if not animation:
@@ -530,22 +526,26 @@ def main() -> None:
                     #if hovered is not None and hovered != img:
                     #    game.field.ui.blit(current_screen, (0, 0))
 
-                    screen, surf = game.field.ui.zoom_hovered(button_rect_wc)
+                    if current_screen is None:
+                        # do this only one time, so the zoom_hovered is not called multiple times
+                        screen = game.field.ui.zoom_hovered(button_rect_wc)
                     current_screen = current_screen or screen
                     last_hovered = hovered
                     hovered = img
                     break
         if hovered is not None:
-            if button_rect.collidepoint(pygame.mouse.get_pos()):
+            if button_rect.collidepoint(pygame.mouse.get_pos()) and (last_hovered is None or last_hovered == hovered):
+                # I need to use last_hovered to prevent artefacts from appearing
+                # if the mouse is moved quickly between cards (hovered is not None between)
                 screen = game.field.ui.zoom_hovered(button_rect_wc)
                 current_screen = current_screen or screen
-                #game.field.ui.blit(surf, (0, 0))
             else:
                 if current_screen is not None:
                     game.field.ui.blit(current_screen, (0, 0))
                 hovered = None
+                last_hovered = None
 
-        pygame.display.flip()
+                pygame.display.flip()
         clock.tick(FPS)
 
     # while input('Run again with the same field? (Or type q to quit) ') != 'q':
