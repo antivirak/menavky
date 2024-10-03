@@ -508,31 +508,29 @@ def main() -> None:
 
             for (button_rect_wc, img), fname in ui.obj_map:
                 button_rect = button_rect_wc.rect
-                if button_rect.collidepoint(pygame.mouse.get_pos()):
-                    if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                        # TODO latest changes broke the correct screen save without animation
-                        game.field.ui.update_color(button_rect, img)
-                        # save the change in color to current_screen
-                        current_screen = game.field.ui.zoom_hovered(button_rect_wc)
-                        if fname == card:
-                            print('Correct!')
-                            if not animation:
-                                game.replay_correct()
-                            cards = game.run_again()
-                            card = None
-                            current_screen = None
-                        break
-
-                    #if hovered is not None and hovered != img:
-                    #    game.field.ui.blit(current_screen, (0, 0))
-
-                    if current_screen is None:
-                        # do this only one time, so the zoom_hovered is not called multiple times
-                        screen = game.field.ui.zoom_hovered(button_rect_wc)
-                    current_screen = current_screen or screen
-                    last_hovered = hovered
-                    hovered = img
+                if not button_rect.collidepoint(pygame.mouse.get_pos()):
+                    continue
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    # TODO latest changes (2 commits back) broke the correct screen save without animation
+                    game.field.ui.update_color(button_rect, img)
+                    # save the change in color to current_screen
+                    current_screen = game.field.ui.zoom_hovered(button_rect_wc)
+                    if fname == card:
+                        print('Correct!')
+                        if not animation:
+                            game.replay_correct()
+                        cards = game.run_again()
+                        card = None
+                        current_screen = None
                     break
+
+                if current_screen is None:
+                    # do this only one time, so the zoom_hovered is not called multiple times
+                    screen = game.field.ui.zoom_hovered(button_rect_wc)
+                current_screen = current_screen or screen
+                last_hovered = hovered
+                hovered = img
+                break
         if hovered is not None:
             if button_rect.collidepoint(pygame.mouse.get_pos()) and (last_hovered is None or last_hovered == hovered):
                 # I need to use last_hovered to prevent artefacts from appearing
