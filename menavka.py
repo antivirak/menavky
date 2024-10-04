@@ -108,7 +108,9 @@ class UserInterface:
             'I': (255, 255, 0),
         }
 
-    def arrange_images_in_circle(self, imagesToArrange: list) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
+    def arrange_images_in_circle(
+        self, imagesToArrange: list[Image],
+    ) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
         # pylint: disable=invalid-name
         imgWidth = self.width
         imgHeight = self.height
@@ -195,6 +197,8 @@ class UserInterface:
             r, g, b, a = new_img.get_at((x, y))
             new_img.set_at((x, y), pygame.Color(r // 2, g, b, a))
         self.blit(new_img, rectangle)
+        # recolor the rectangle in the same frame
+        pygame.display.update(rectangle)
 
     def zoom_hovered(self, rectangle_wc: RectWithCache) -> pygame.Surface:
         rectangle = rectangle_wc.rect
@@ -290,7 +294,7 @@ class Field:
             )
             self.ui.blit(center_image, ((w // 2) - 40, (h // 2) - 40))
 
-            pygame.draw.line(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
+            pygame.draw.aaline(self.ui.img, (0, 0, 0), *shape)  # TODO dependency injection?
             pygame.display.flip()
             sleep(.55)  # pygame.time.wait?
         if self.direction == 'black':
@@ -481,7 +485,8 @@ class Game:
 
 
 def game_loop(
-    cards, card, hovered, last_hovered, current_screen, ui, game, button_rect_wc, button_rect, done=False,
+    cards, card, hovered, last_hovered, current_screen, button_rect_wc, button_rect, ui, game,
+    done=False,
 ) -> tuple:
     if not card:
         card = next(cards)
@@ -493,7 +498,7 @@ def game_loop(
             if not button_rect.collidepoint(pygame.mouse.get_pos()):
                 continue
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                # TODO latest changes (2 commits back) broke the correct screen save without animation
+                game.field.ui.blit(current_screen, (0, 0))
                 game.field.ui.update_color(button_rect, img)
                 # save the change in color to current_screen
                 current_screen = game.field.ui.zoom_hovered(button_rect_wc)
@@ -501,6 +506,7 @@ def game_loop(
                     print('Correct!')
                     if not game.field.animation:
                         game.replay_correct()
+                    game.field.ui.blit(current_screen, (0, 0))
                     cards = game.run_again()
                     card = None
                     current_screen = None
@@ -515,11 +521,12 @@ def game_loop(
             break
 
     if hovered is not None:
-        if button_rect.collidepoint(pygame.mouse.get_pos()) and (last_hovered is None or last_hovered == hovered):
+        if button_rect.collidepoint(pygame.mouse.get_pos()) and (
+            last_hovered is None or last_hovered == hovered
+        ):
             # I need to use last_hovered to prevent artefacts from appearing
             # if the mouse is moved quickly between cards (hovered is not None between)
-            screen = game.field.ui.zoom_hovered(button_rect_wc)
-            current_screen = current_screen or screen
+            game.field.ui.zoom_hovered(button_rect_wc)  # here we cannot assign current_screen
         else:
             if current_screen is not None:
                 game.field.ui.blit(current_screen, (0, 0))
@@ -552,7 +559,8 @@ def main() -> None:
     button_rect_wc = RectWithCache(pygame.Rect(0, 0, 0, 0), None)
     while not done:
         done, cards, card, hovered, last_hovered, current_screen, button_rect_wc = game_loop(
-            cards, card, hovered, last_hovered, current_screen, ui, game, button_rect_wc, button_rect_wc.rect,
+            cards, card, hovered, last_hovered, current_screen, button_rect_wc,
+            button_rect_wc.rect, ui, game,
         )
         clock.tick(FPS)
 
