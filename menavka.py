@@ -17,7 +17,7 @@ from mol2geom import mol2geom
 FNAME_MAP = {
     'blue_stripe_1': 'Bn_boc_gly',
     'red_stripe_1': 'Bn_boc_ser',
-    'blue_dot_1': 'Bn_gly',  # TODO drawn without oxygen
+    'blue_dot_1': 'Bn_gly',
     'red_dot_1': 'Bn_ser',
     'blue_stripe_2': 'Boc_gly',
     'red_stripe_2': 'Boc_ser',

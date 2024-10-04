@@ -17,7 +17,7 @@ There are 4 types of cards in the game:
 
 * *molecule* cards which represent different forms of an amino acid. Here you can see a glycine molecule in neutral form:
 
-<img src="menavky/blue_dot_1.png" alt="Glycine" height="200"/>
+<img src="menavky/blue_dot_2.png" alt="Glycine" height="200"/>
 
 * *cell membrane* cards - they are used to travel through the circle while skipping all the cards between them. Like a teleport!
 
@@ -59,6 +59,19 @@ Once you select the correct card with the molecule, an animation is played showi
 If you select a card and it only changes color to blue without any animation, you have chosen the wrong card. Try again!
 
 Have fun!
+
+## Launching the software
+
+To start the game, just activate python virtual environment, install the pip dependencies and launch the game using
+
+    $ python3 -m venv venv && source venv/bin/activate
+    $ pip3 install -r requirements.txt
+    $ python3 menavka.py
+
+By default, you get rotating 3D projection of the molecule on hover over any molecule card.
+This behaviour can be changed to only zoom to the static picture on hover using a -z flag:
+
+    $ python3 menavka.py -z
 
 ## Acknowledgements
 
