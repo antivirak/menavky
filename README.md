@@ -34,7 +34,7 @@ Track the molecule from the source laboratory in the indicated direction until y
 * The molecule may pass through a cell membrane, skipping the cards between the two sides of the membrane (in other words, skipping the cards until next membrane card is reached).
 
 ### Trivia
-When chemist needs to create a peptide, it is necessary to protect the C-end or the N-end of the molecule by some protecting group (PG). For protecting the N-end, Boc ([*tert*-Butyloxycarbonyl](https://en.wikipedia.org/wiki/Tert-Butyloxycarbonyl_protecting_group)) group is often used. It is introduced to the molecule by reacting with Boc-anhydride (Boc<sub>2</sub>O).
+When chemists need to create a peptide, it is necessary to protect the C-end (carboxyl end) or the N-end (amino end) of the molecule by some protecting group (PG). These ends refer to the terminal groups of amino acids in a peptide chain. For protecting the N-end, Boc ([*tert*-Butyloxycarbonyl](https://en.wikipedia.org/wiki/Tert-Butyloxycarbonyl_protecting_group)) group is often used. It is introduced to the molecule by reacting with Boc-anhydride (Boc<sub>2</sub>O).
 For protecting the C-end, Bn (benzyl) group can be used. It is introduced by reacting the acid with [Benzyl chloride](https://en.wikipedia.org/wiki/Benzyl_chloride).
 Both reactions are reversible.
 
@@ -62,7 +62,7 @@ Have fun!
 
 ## Launching the software
 
-To start the game, just activate python virtual environment, install the pip dependencies and launch the game using
+To start the game, just activate python virtual environment, install the pip dependencies, and launch the game using
 
     $ python3 -m venv venv && source venv/bin/activate
     $ pip3 install -r requirements.txt
