@@ -34,8 +34,14 @@ height = 800
 
 
 class RectWithCache:
+    """
+    Pygame rectangle with more attributes: full_image (static), molecule to be shown (animated)
+    """
     def __init__(
-        self, rect: pygame.Rect, full_img, mol: tuple[np.ndarray, np.ndarray, dict[int, str]],
+        self,
+        rect: pygame.Rect,
+        full_img: pygame.Surface,
+        mol: tuple[np.ndarray, np.ndarray, dict[int, str]],  # could have made Mol class, this type is crazy :)
     ) -> None:
         self.rect = rect
         self.full_image = full_img
@@ -89,7 +95,11 @@ class Config:
 
 
 class UserInterface:
+    """
+    Encapsulates the UI elements and logic
+    """
     def __init__(self):
+        """Initialize the ui objects"""
         border = 2
         self.width = width
         self.height = height
@@ -97,6 +107,7 @@ class UserInterface:
         self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
         self.img.fill(self.background)
         self.transparent_layer = None
+        self.obj_map: list[tuple[Iterator[tuple[RectWithCache, pygame.Surface]]], str] = []
         self.angle_x = 0
         self.angle_y = 0
         self.angle_z = 0
@@ -117,8 +128,9 @@ class UserInterface:
         }
 
     def arrange_images_in_circle(
-        self, imagesToArrange: list[tuple[Image, tuple[np.ndarray, np.ndarray, dict[int, str]]]],
+        self, imagesToArrange: list[tuple[Image.Image, tuple[np.ndarray, np.ndarray, dict[int, str]]]],
     ) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
+        """Deal the cards in a circle"""
         # pylint: disable=invalid-name
         imgWidth = self.width
         imgHeight = self.height
@@ -181,7 +193,8 @@ class UserInterface:
                 new_image,
             )
 
-    def show(self, cards, direction):
+    def show(self, cards: list[str], direction: str):
+        """Load the images and molecules from HDD"""
         cards_to_show = list(reversed(cards)) if direction == 'black' else cards
         images = [
             (
@@ -195,16 +208,21 @@ class UserInterface:
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
         self.update_transparent_layer()
 
-    def blit(self, surface, pos) -> pygame.Rect:
+    def blit(self, surface: pygame.Surface, pos) -> pygame.Rect:
+        """'partial' evaluation of pygame.Surface.blit"""
         return self.img.blit(surface, pos)
 
-    def update_transparent_layer(self):
+    def update_transparent_layer(self) -> None:
         self.transparent_layer = self.img.copy()
 
-    def reset_img(self):
+    def reset_img(self) -> None:
         self.blit(self.transparent_layer, (0, 0))
 
-    def update_color(self, rectangle, img):
+    def update_color(self, rectangle: pygame.Rect, img: pygame.Surface) -> None:
+        """
+        Make the card blue-ish after clicking on it.
+        It will show user that the card was already clicked.
+        """
         # pylint: disable=invalid-name
         w, h = img.get_size()
         new_img = img.copy()
@@ -216,6 +234,10 @@ class UserInterface:
         pygame.display.update(rectangle)
 
     def zoom_hovered(self, rectangle_wc: RectWithCache) -> pygame.Surface:
+        """
+        Define logic for zooming in on hovered card.
+        The card can just be shown bigger or an animation of 3D molecule can be projected.
+        """
         rectangle = rectangle_wc.rect
         current_screen = self.img.copy()
         rectangle = rectangle.move(
@@ -223,30 +245,32 @@ class UserInterface:
             (self.height // 3 - rectangle.y) // 2,
         )
 
-        # TODO do we need all rotations, as we only rotate around y-axis?
-        rotation_x = np.array([
-            [1, 0, 0],
-            [0, math.cos(self.angle_x), -math.sin(self.angle_x)],
-            [0, math.sin(self.angle_x), math.cos(self.angle_x)]]
-        )
+        # we only rotate around y-axis
+        # rotation_x = np.array([
+        #     [1, 0, 0],
+        #     [0, math.cos(self.angle_x), -math.sin(self.angle_x)],
+        #     [0, math.sin(self.angle_x), math.cos(self.angle_x)]]
+        # )
         rotation_y = np.array([
             [math.cos(self.angle_y), 0, math.sin(self.angle_y)],
             [0, 1, 0],
             [-math.sin(self.angle_y), 0, math.cos(self.angle_y)]]
         )
-        rotation_z = np.array([
-            [math.cos(self.angle_z), -math.sin(self.angle_z), 0],
-            [math.sin(self.angle_z), math.cos(self.angle_z), 0],
-            [0, 0, 1]]
-        )
+        # rotation_z = np.array([
+        #     [math.cos(self.angle_z), -math.sin(self.angle_z), 0],
+        #     [math.sin(self.angle_z), math.cos(self.angle_z), 0],
+        #     [0, 0, 1]]
+        # )
 
         points = np.zeros((len(rectangle_wc.matrix), 2))
         surf = pygame.Surface((rectangle.w * 2, rectangle.h * 2))
         for i, point in enumerate(rectangle_wc.matrix):
-            rotate_x = np.matmul(rotation_x, point)
-            rotate_y = np.matmul(rotation_y, rotate_x)
-            rotate_z = np.matmul(rotation_z, rotate_y)
-            point_2d = np.matmul(self.projection_matrix, rotate_z)
+            # rotate_x = np.matmul(rotation_x, point)
+            # rotate_y = np.matmul(rotation_y, rotate_x)
+            # rotate_z = np.matmul(rotation_z, rotate_y)
+            # point_2d = np.matmul(self.projection_matrix, rotate_z)
+            rotate_y = np.matmul(rotation_y, point)
+            point_2d = np.matmul(self.projection_matrix, rotate_y)
 
             x = (point_2d[0] * SCALE) + CARD_SIZE
             y = (point_2d[1] * SCALE) + CARD_SIZE
@@ -275,7 +299,7 @@ class UserInterface:
 
     @staticmethod
     @lru_cache()
-    def image_load(fname):
+    def image_load(fname: str) -> pygame.Surface:
         return pygame.image.load(f'menavky/{fname}')
 
 
@@ -289,10 +313,10 @@ class Field:
         self.next_count = 0
         self.current_card_filename = ''
 
-    def __len__(self):
+    def __len__(self) -> int:
         return len(self.cards_static)
 
-    def __next__(self, visible: bool = True):
+    def __next__(self, visible: bool = True) -> str:
         if not visible:
             if self.direction == 'black':
                 self.next_count -= 1
@@ -324,10 +348,10 @@ class Field:
             self.next_count += 1
         return next(self.cards)
 
-    def next_invisible(self):
+    def next_invisible(self) -> str:
         return self.__next__(visible=False)  # pylint: disable=unnecessary-dunder-call
 
-    def create(self, start: str, direction: str):
+    def create(self, start: str, direction: str) -> 'Field':
         self.direction = direction
         self.cards_static.remove(start)
         self.shuffle()
@@ -339,7 +363,7 @@ class Field:
     def shuffle(self) -> None:
         random.shuffle(self.cards_static)  # mutates the list :(
 
-    def cycle_to_start(self, start_lab: str, direction: str):
+    def cycle_to_start(self, start_lab: str, direction: str) -> None:
         if self.direction != direction:
             self.direction = direction
             self.cards_static.reverse()
@@ -349,7 +373,7 @@ class Field:
         while card != start_lab:
             card = self.next_invisible()
 
-    def show_throw(self, card: str, labs: tuple[str, str]):
+    def show_throw(self, card: str, labs: tuple[str, str]) -> None:
         self.ui.reset_img()
         w = self.ui.width
         h = self.ui.height
@@ -410,6 +434,7 @@ class Game:
         self.field_len = len(self.field)
 
     def set_init_dice_vals(self):
+        # pylint: disable=attribute-defined-outside-init
         self.labs = self.init_labs
         self.eyes = self.init_eyes
         self.stripes = self.init_stripes
@@ -435,6 +460,7 @@ class Game:
             print(f'{attrname}: {_map(getattr(self, attrname))}')
 
     def _throw_manual(self) -> None:
+        """Option to throw the dice manually and input the values. Not used now."""
         for attrname in ('labs', 'eyes', 'stripes', 'colors'):
             if attrname == 'labs':
                 value2 = input(f'Enter {attrname} die value (red / blue / yellow): ').strip()
@@ -448,8 +474,8 @@ class Game:
                 quality1 = 'stripes' if 'stripes' in attrname else 'red'
                 quality2 = 'dots' if 'stripes' in attrname else 'blue'
                 val = input(f'Enter {attrname} die value ({quality1} = 1, {quality2} = 2): ')
-                assert val in (1, 2), f'Invalid value {val}; has to be 1 or 2'
-                setattr(self, attrname, val)
+                assert val in ('1', '2'), f'Invalid value {val}; has to be 1 or 2'
+                setattr(self, attrname, int(val))
 
     def run(self) -> Generator[str, None, None]:
         if not self.field.animation:
@@ -494,7 +520,7 @@ class Game:
         self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         return self.run()
 
-    def replay_correct(self):
+    def replay_correct(self) -> None:
         self.field.cycle_to_start(f'{self.labs[1]}_lab', self.labs[0])
         self.set_init_dice_vals()
         assert not self.field.animation
@@ -506,6 +532,10 @@ class Game:
 
 
 def load_molecule(fname: str) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
+    """
+    Return molecule 3D coordinates, adjacency matrix (with bond multiplicity)
+    and atom index - element symbol mapping
+    """
     if 'not_found' in fname:
         return np.zeros((0, 0)), np.zeros((0, 0)), {1: 'H'}
 
@@ -525,7 +555,7 @@ def game_loop(
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             done = True
-        for (button_rect_wc, img), fname in ui.obj_map:
+        for (button_rect_wc, img), fname in ui.obj_map:  # pylint: disable=redefined-argument-from-local
             button_rect = button_rect_wc.rect
             if not button_rect.collidepoint(pygame.mouse.get_pos()):
                 continue

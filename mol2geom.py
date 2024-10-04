@@ -1,10 +1,10 @@
-from collections.abc import Iterable
+from collections.abc import Sequence
 from itertools import dropwhile
 
 import numpy as np
 
 
-def mol2geom(mol: Iterable[str]) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
+def mol2geom(mol: Sequence[str]) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
     length_atoms, length_bonds, *_ = mol[0].split()
     matrix = np.zeros((int(length_atoms), 3))
     bonds = np.zeros((int(length_bonds), 3), dtype=int)
@@ -23,9 +23,10 @@ def mol2geom(mol: Iterable[str]) -> tuple[np.ndarray, np.ndarray, dict[int, str]
             split = line.split()
             if len(split) < 4:
                 break
-            id1, id2, multiplicity, *_ = split
-            id1 = int(id1) - 1
-            id2 = int(id2) - 1
+            id1_str, id2_str, multiplicity, *_ = split
+            id1 = int(id1_str) - 1
+            id2 = int(id2_str) - 1
+            # skip hydrogen atoms/bonds, they do not need to be visualized
             if atoms.get(id1) == 'H' or atoms.get(id2) == 'H':
                 continue
             idx = i - int(length_atoms)
