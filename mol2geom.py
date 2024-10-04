@@ -36,5 +36,5 @@ def mol2geom(mol: Iterable[str]) -> tuple[np.ndarray, np.ndarray, dict[int, str]
 
 if __name__ == "__main__":
     with open("molfiles/gly.mol") as f:
-        mol = dropwhile(lambda x: 'V2000' not in x, f.readlines())
-    print(mol2geom(list(mol)))
+        _ = dropwhile(lambda x: 'V2000' not in x, f.readlines())
+    print(mol2geom(list(_)))

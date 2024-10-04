@@ -3,6 +3,7 @@
 import itertools
 import math
 import random
+import sys
 from collections.abc import Generator, Iterator
 from functools import lru_cache
 from time import sleep
@@ -13,6 +14,16 @@ from PIL import Image
 
 from mol2geom import mol2geom
 
+FNAME_MAP = {
+    'blue_stripe_1': 'Bn_boc_gly',
+    'red_stripe_1': 'Bn_boc_ser',
+    'blue_dot_1': 'Bn_gly',  # TODO drawn without oxygen
+    'red_dot_1': 'Bn_ser',
+    'blue_stripe_2': 'Boc_gly',
+    'red_stripe_2': 'Boc_ser',
+    'blue_dot_2': 'gly',
+    'red_dot_2': 'ser',
+}
 EXTENSION = 'png'
 FPS = 48
 CARD_SIZE = 80
@@ -20,18 +31,15 @@ ROTATE_SPEED = .02
 SCALE = 18
 width = 800
 height = 800
-# TODO maybe thicker lines?
-
-# TODO load the rest
-with open("molfiles/Bn_boc_ser.mol") as f:
-    _ = itertools.dropwhile(lambda x: 'V2000' not in x, f.readlines())
-cube_points, bonds, atoms = mol2geom(list(_))
 
 
 class RectWithCache:
-    def __init__(self, rect: pygame.Rect, full_img) -> None:
+    def __init__(
+        self, rect: pygame.Rect, full_img, mol: tuple[np.ndarray, np.ndarray, dict[int, str]],
+    ) -> None:
         self.rect = rect
         self.full_image = full_img
+        self.matrix, self.bonds, self.atoms = mol
 
 
 class Config:
@@ -109,7 +117,7 @@ class UserInterface:
         }
 
     def arrange_images_in_circle(
-        self, imagesToArrange: list[Image],
+        self, imagesToArrange: list[tuple[Image, tuple[np.ndarray, np.ndarray, dict[int, str]]]],
     ) -> Iterator[tuple[RectWithCache, pygame.Surface]]:
         # pylint: disable=invalid-name
         imgWidth = self.width
@@ -130,7 +138,7 @@ class UserInterface:
         circleCenterY = imgHeight // 2
         theta = 2 * math.pi / len(imagesToArrange)
 
-        for i, curImg in enumerate(imagesToArrange):
+        for i, (curImg, mol) in enumerate(imagesToArrange):
             angle = i * theta
             dx = int(radius * math.cos(angle))
             dy = int(radius * math.sin(angle))
@@ -165,16 +173,23 @@ class UserInterface:
             # drawing the rotated rectangle to the screen
             self.blit(new_image, pos)
             yield (
-                RectWithCache(rect, pygame.image.fromstring(curImg.tobytes(), curImg.size, curImg.mode)),
+                RectWithCache(
+                    rect,
+                    pygame.image.fromstring(curImg.tobytes(), curImg.size, curImg.mode),
+                    mol,
+                ),
                 new_image,
             )
 
     def show(self, cards, direction):
         cards_to_show = list(reversed(cards)) if direction == 'black' else cards
         images = [
-            Image
-            .open(f'menavky/{filename}.{EXTENSION}')
-            .convert('RGBA') for filename in cards_to_show
+            (
+                Image
+                .open(f'menavky/{filename}.{EXTENSION}')
+                .convert('RGBA'),
+                load_molecule(f'molfiles/{FNAME_MAP.get(filename, "not_found")}.mol'),
+            ) for filename in cards_to_show
         ]
 
         self.obj_map = list(zip(list(self.arrange_images_in_circle(images)), cards_to_show))
@@ -208,6 +223,7 @@ class UserInterface:
             (self.height // 3 - rectangle.y) // 2,
         )
 
+        # TODO do we need all rotations, as we only rotate around y-axis?
         rotation_x = np.array([
             [1, 0, 0],
             [0, math.cos(self.angle_x), -math.sin(self.angle_x)],
@@ -224,9 +240,9 @@ class UserInterface:
             [0, 0, 1]]
         )
 
-        points = np.zeros((len(cube_points), 2))
+        points = np.zeros((len(rectangle_wc.matrix), 2))
         surf = pygame.Surface((rectangle.w * 2, rectangle.h * 2))
-        for i, point in enumerate(cube_points):
+        for i, point in enumerate(rectangle_wc.matrix):
             rotate_x = np.matmul(rotation_x, point)
             rotate_y = np.matmul(rotation_y, rotate_x)
             rotate_z = np.matmul(rotation_z, rotate_y)
@@ -236,18 +252,23 @@ class UserInterface:
             y = (point_2d[1] * SCALE) + CARD_SIZE
 
             points[i] = (x, y)
-            pygame.draw.circle(surf, self.atoms_to_color[atoms[i]], (x, y), 5)
-        for bond in bonds:
+            pygame.draw.circle(surf, self.atoms_to_color[rectangle_wc.atoms[i]], (x, y), 5)
+        for bond in rectangle_wc.bonds:
             pygame.draw.line(
                 surf,
                 (255, 255, 255),
                 (points[bond[0]][0], points[bond[0]][1]), (points[bond[1]][0], points[bond[1]][1]),
                 width=(bond[2] - 1) * 4 + 1,  # not possible for .aaline()
             )
-        self.blit(surf, rectangle)
+        if len(rectangle_wc.atoms) == 1 or ZOOM_ONLY:
+            # I could also show the image rotated, but this is better
+            self.blit(pygame.transform.smoothscale(
+                rectangle_wc.full_image, (CARD_SIZE * 2, CARD_SIZE * 2),
+            ), rectangle)
+        else:
+            self.blit(surf, rectangle)
+            self.angle_y -= ROTATE_SPEED
         rectangle.h = rectangle.h * 2  # not sure why
-
-        self.angle_y -= ROTATE_SPEED
 
         pygame.display.update(rectangle)
         return current_screen
@@ -484,6 +505,17 @@ class Game:
         self.field.animation = False
 
 
+def load_molecule(fname: str) -> tuple[np.ndarray, np.ndarray, dict[int, str]]:
+    if 'not_found' in fname:
+        return np.zeros((0, 0)), np.zeros((0, 0)), {1: 'H'}
+
+    with open(fname) as f:
+        mol = itertools.dropwhile(lambda x: 'V2000' not in x, f.readlines())
+    matrix, bonds, atoms = mol2geom(list(mol))
+
+    return matrix, bonds, atoms
+
+
 def game_loop(
     cards, card, hovered, last_hovered, current_screen, button_rect_wc, button_rect, ui, game,
     done=False,
@@ -556,7 +588,9 @@ def main() -> None:
     hovered = None
     last_hovered = None
     current_screen = None
-    button_rect_wc = RectWithCache(pygame.Rect(0, 0, 0, 0), None)
+    button_rect_wc = RectWithCache(
+        pygame.Rect(0, 0, 0, 0), None, (np.zeros((0, 0)), np.zeros((0, 0)), {1: 'H'}),
+    )
     while not done:
         done, cards, card, hovered, last_hovered, current_screen, button_rect_wc = game_loop(
             cards, card, hovered, last_hovered, current_screen, button_rect_wc,
@@ -567,4 +601,5 @@ def main() -> None:
 
 if __name__ == '__main__':
     # TODO write tests
+    ZOOM_ONLY = len(sys.argv) > 1 and '-z' in sys.argv[1]
     main()
