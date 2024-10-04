@@ -85,7 +85,7 @@ class UserInterface:
         border = 2
         self.width = width
         self.height = height
-        self.background = (214, 188, 155)  # (255, 255, 255)
+        self.background = (214, 188, 155)
         self.img = pygame.display.set_mode((width + (2 * border), height + (2 * border)))
         self.img.fill(self.background)
         self.transparent_layer = None
@@ -311,7 +311,7 @@ class Field:
         self.ui.show(self.cards_static, direction)
         return self
 
-    def shuffle(self):
+    def shuffle(self) -> None:
         random.shuffle(self.cards_static)  # mutates the list :(
 
     def cycle_to_start(self, start_lab: str, direction: str):
@@ -480,74 +480,81 @@ class Game:
         self.field.animation = False
 
 
+def game_loop(
+    cards, card, hovered, last_hovered, current_screen, ui, game, button_rect_wc, button_rect, done=False,
+) -> tuple:
+    if not card:
+        card = next(cards)
+    for event in pygame.event.get():
+        if event.type == pygame.QUIT:
+            done = True
+        for (button_rect_wc, img), fname in ui.obj_map:
+            button_rect = button_rect_wc.rect
+            if not button_rect.collidepoint(pygame.mouse.get_pos()):
+                continue
+            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                # TODO latest changes (2 commits back) broke the correct screen save without animation
+                game.field.ui.update_color(button_rect, img)
+                # save the change in color to current_screen
+                current_screen = game.field.ui.zoom_hovered(button_rect_wc)
+                if fname == card:
+                    print('Correct!')
+                    if not game.field.animation:
+                        game.replay_correct()
+                    cards = game.run_again()
+                    card = None
+                    current_screen = None
+                break
+
+            if current_screen is None:
+                # do this only one time, so the zoom_hovered is not called multiple times
+                screen = game.field.ui.zoom_hovered(button_rect_wc)
+            current_screen = current_screen or screen
+            last_hovered = hovered
+            hovered = img
+            break
+
+    if hovered is not None:
+        if button_rect.collidepoint(pygame.mouse.get_pos()) and (last_hovered is None or last_hovered == hovered):
+            # I need to use last_hovered to prevent artefacts from appearing
+            # if the mouse is moved quickly between cards (hovered is not None between)
+            screen = game.field.ui.zoom_hovered(button_rect_wc)
+            current_screen = current_screen or screen
+        else:
+            if current_screen is not None:
+                game.field.ui.blit(current_screen, (0, 0))
+            hovered = None
+            last_hovered = None
+
+            pygame.display.flip()
+
+    return done, cards, card, hovered, last_hovered, current_screen, button_rect_wc
+
+
 def main() -> None:
     pygame.init()
     pygame.display.set_caption("Find the amino acid!")
 
     config = Config()
     ui = UserInterface()
-    animation = False
-    game = Game(config, Field(config, ui, animation=animation))
+    game = Game(config, Field(config, ui, animation=False))
     cards = game.run()
-    card = None
 
-    done = False
     clock = pygame.time.Clock()
 
     # basicfont = pygame.font.SysFont(None, 32)
 
+    done = False
+    card = None
     hovered = None
     last_hovered = None
     current_screen = None
+    button_rect_wc = RectWithCache(pygame.Rect(0, 0, 0, 0), None)
     while not done:
-        if not card:
-            card = next(cards)
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                done = True
-
-            for (button_rect_wc, img), fname in ui.obj_map:
-                button_rect = button_rect_wc.rect
-                if not button_rect.collidepoint(pygame.mouse.get_pos()):
-                    continue
-                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    # TODO latest changes (2 commits back) broke the correct screen save without animation
-                    game.field.ui.update_color(button_rect, img)
-                    # save the change in color to current_screen
-                    current_screen = game.field.ui.zoom_hovered(button_rect_wc)
-                    if fname == card:
-                        print('Correct!')
-                        if not animation:
-                            game.replay_correct()
-                        cards = game.run_again()
-                        card = None
-                        current_screen = None
-                    break
-
-                if current_screen is None:
-                    # do this only one time, so the zoom_hovered is not called multiple times
-                    screen = game.field.ui.zoom_hovered(button_rect_wc)
-                current_screen = current_screen or screen
-                last_hovered = hovered
-                hovered = img
-                break
-        if hovered is not None:
-            if button_rect.collidepoint(pygame.mouse.get_pos()) and (last_hovered is None or last_hovered == hovered):
-                # I need to use last_hovered to prevent artefacts from appearing
-                # if the mouse is moved quickly between cards (hovered is not None between)
-                screen = game.field.ui.zoom_hovered(button_rect_wc)
-                current_screen = current_screen or screen
-            else:
-                if current_screen is not None:
-                    game.field.ui.blit(current_screen, (0, 0))
-                hovered = None
-                last_hovered = None
-
-                pygame.display.flip()
+        done, cards, card, hovered, last_hovered, current_screen, button_rect_wc = game_loop(
+            cards, card, hovered, last_hovered, current_screen, ui, game, button_rect_wc, button_rect_wc.rect,
+        )
         clock.tick(FPS)
-
-    # while input('Run again with the same field? (Or type q to quit) ') != 'q':
-    #     print(game.run_again())
 
 
 if __name__ == '__main__':
