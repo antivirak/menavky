@@ -7,6 +7,7 @@ import sys
 from collections.abc import Generator, Iterator
 from functools import lru_cache
 from time import sleep
+from typing import Self
 
 import numpy as np
 import pygame
@@ -351,7 +352,7 @@ class Field:
     def next_invisible(self) -> str:
         return self.__next__(visible=False)  # pylint: disable=unnecessary-dunder-call
 
-    def create(self, start: str, direction: str) -> 'Field':
+    def create(self, start: str, direction: str) -> Self:
         self.direction = direction
         self.cards_static.remove(start)
         self.shuffle()
